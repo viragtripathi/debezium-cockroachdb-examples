@@ -67,6 +67,7 @@ The script is fully automated and runs through 20 steps:
 | DELETE replication | Deleted rows removed from target via tombstone events |
 | Schema auto-creation | Target table created automatically by JDBC sink (`schema.evolution=basic`) |
 | Upsert mode | Idempotent writes using `INSERT ... ON CONFLICT ... DO UPDATE` |
+| Heartbeat support | Resolved timestamps advance offsets and emit heartbeat records |
 | Debug logging | Full event pipeline visible in connector logs |
 | Data types | UUID, STRING, DECIMAL, BOOLEAN, JSONB, TIMESTAMPTZ, arrays |
 
@@ -93,6 +94,7 @@ The script is fully automated and runs through 20 steps:
 | `cockroachdb.changefeed.envelope` | `enriched` | Uses CockroachDB enriched changefeed format |
 | `cockroachdb.changefeed.include.diff` | `true` | Include before-image for updates |
 | `cockroachdb.changefeed.cursor` | `now` | Start from current time (no historical backfill) |
+| `heartbeat.interval.ms` | `10000` | Emit heartbeat records every 10s using resolved timestamps |
 | `cockroachdb.changefeed.sink.type` | `kafka` | Changefeed sinks to Kafka |
 | `cockroachdb.changefeed.sink.uri` | `kafka://kafka:9092` | Internal Kafka bootstrap server |
 
@@ -204,9 +206,7 @@ CREATE TABLE orders (
 
 ## Known Limitations
 
-- **No snapshot support**: The connector uses `cursor=now`, so only events after changefeed creation are captured. Pre-existing rows are not backfilled.
-- **Single table per connector**: Each connector instance monitors one table. Multi-table support is planned.
-- **Schema evolution**: Adding/dropping columns after changefeed creation is not yet handled.
+- **Schema evolution**: Adding/dropping columns after changefeed creation is not yet handled. Restart the connector after schema changes.
 - **CockroachDB insecure mode**: The demo uses `--insecure` for simplicity. For production, use SSL certificates.
 - **Hibernate dialect**: The JDBC sink requires `hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect`. While CockroachDB has a first-class [`CockroachDialect`](https://docs.hibernate.org/orm/6.3/javadocs/org/hibernate/dialect/CockroachDialect.html) in Hibernate 6.x ([CockroachDB + Hibernate docs](https://www.cockroachlabs.com/docs/stable/build-a-java-app-with-cockroachdb-hibernate)), the Debezium JDBC sink's `DatabaseDialectResolver` does not yet have a CockroachDB-specific `DatabaseDialectProvider`. Since `CockroachDialect` extends `Dialect` directly (not `PostgreSQLDialect`), the resolver falls back to `GeneralDatabaseDialect` which lacks upsert support. Using `PostgreSQLDialect` correctly maps to the Debezium `PostgresDatabaseDialect`, which generates the `INSERT ... ON CONFLICT ... DO UPDATE` syntax that CockroachDB supports. Adding a `CockroachDBDatabaseDialectProvider` to the Debezium JDBC sink is a natural follow-up enhancement.
 

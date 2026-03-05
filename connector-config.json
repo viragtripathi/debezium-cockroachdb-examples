@@ -15,6 +15,7 @@
     "cockroachdb.changefeed.include.updated": true,
     "cockroachdb.changefeed.include.diff": true,
     "cockroachdb.changefeed.resolved.interval": "10s",
+    "heartbeat.interval.ms": 10000,
     "snapshot.mode": "initial",
     "cockroachdb.changefeed.sink.type": "kafka",
     "cockroachdb.changefeed.sink.uri": "kafka://kafka:9092",
