@@ -54,7 +54,7 @@ COCKROACHDB_VERSION=v26.1.0 DEBEZIUM_VERSION=3.5.0.Beta1 ./run-demo.sh
 | `CONFLUENT_VERSION` | `7.4.0` | Confluent Platform (Kafka/ZK) image tag |
 | `SKIP_BUILD` | `false` | Skip building from source, use pre-built plugin |
 
-The script is fully automated and runs through 21 steps:
+The script is fully automated and runs through 22 steps:
 
 1. **Build** the connector plugin from source (or skip with `SKIP_BUILD=true`)
 2. **Extract** the plugin into `connect-plugins/`
@@ -70,13 +70,14 @@ The script is fully automated and runs through 21 steps:
 12. **Deploy** the Debezium JDBC sink connector (writes to target CRDB)
 13. **Run DML** operations: 2 UPDATEs, 1 DELETE, 1 customer UPDATE, 1 customer INSERT
 14. **Schema evolution demo**: `ALTER TABLE ADD COLUMN priority` -- detected without restart
-15. **Show source connector debug logs** (changefeed processing, schema detection)
-16. **Show JDBC sink connector debug logs** (CREATE TABLE, flushing records, tombstones)
-17. **Error check** (verify zero connector errors)
-18. **List Kafka topics**
-19. **Display Debezium change events** from the output topic (op=c, op=u, op=d)
-20. **Verify data in target CRDB** and compare source vs target row counts
-21. **Print summary** with all service URLs and interactive commands
+15. **Incremental snapshot demo**: signal-based re-snapshot of orders table -- no restart
+16. **Show source connector debug logs** (changefeed processing, schema detection)
+17. **Show JDBC sink connector debug logs** (CREATE TABLE, flushing records, tombstones)
+18. **Error check** (verify zero connector errors)
+19. **List Kafka topics**
+20. **Display Debezium change events** from the output topic (op=c, op=u, op=d)
+21. **Verify data in target CRDB** and compare source vs target row counts
+22. **Print summary** with all service URLs and interactive commands
 
 ## What the Demo Proves
 
@@ -86,6 +87,7 @@ The script is fully automated and runs through 21 steps:
 | UPDATE replication | Column changes (amount, status) propagated to target |
 | DELETE replication | Deleted rows removed from target via tombstone events |
 | Schema evolution | `ALTER TABLE ADD COLUMN` detected automatically without restart |
+| Incremental snapshots | Signal-based re-snapshot of existing data without stopping the connector |
 | Schema auto-creation | Target table created automatically by JDBC sink (`schema.evolution=basic`) |
 | Upsert mode | Idempotent writes using `INSERT ... ON CONFLICT ... DO UPDATE` |
 | Heartbeat support | Resolved timestamps advance offsets and emit heartbeat records |
@@ -111,7 +113,8 @@ The script is fully automated and runs through 21 steps:
 |---|---|---|
 | `connector.class` | `CockroachDBConnector` | Debezium CockroachDB source connector |
 | `topic.prefix` | `crdb` | Prefix for output Kafka topics |
-| `table.include.list` | `public.orders` | Tables to capture (schema.table format) |
+| `table.include.list` | `public.orders,public.customers,public.debezium_signal` | Tables to capture (schema.table format) |
+| `signal.data.collection` | `demodb.public.debezium_signal` | Signaling table for incremental snapshots |
 | `cockroachdb.changefeed.envelope` | `enriched` | Uses CockroachDB enriched changefeed format |
 | `cockroachdb.changefeed.include.diff` | `true` | Include before-image for updates |
 | `cockroachdb.changefeed.cursor` | `now` | Start from current time (no historical backfill) |
@@ -225,6 +228,7 @@ CREATE TABLE orders (
 | `setup-target-cockroachdb.sql` | Target DB setup: database creation |
 | `demo-operations.sql` | DML operations (UPDATE, DELETE) run during the demo |
 | `demo-schema-evolution.sql` | Schema evolution demo: ALTER TABLE ADD COLUMN without restart |
+| `demo-incremental-snapshot.sql` | Incremental snapshot demo: signal-based re-snapshot via signaling table |
 
 ## Known Limitations
 

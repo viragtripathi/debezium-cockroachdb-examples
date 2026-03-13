@@ -36,11 +36,20 @@ CREATE TABLE IF NOT EXISTS customers (
     created_at TIMESTAMPTZ DEFAULT current_timestamp()
 );
 
+-- Create signaling table for incremental snapshots
+CREATE TABLE IF NOT EXISTS debezium_signal (
+    id STRING PRIMARY KEY,
+    type STRING NOT NULL,
+    data STRING
+);
+
 -- Grant permissions
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE orders TO demo;
 GRANT CHANGEFEED ON TABLE orders TO demo;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE customers TO demo;
 GRANT CHANGEFEED ON TABLE customers TO demo;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE debezium_signal TO demo;
+GRANT CHANGEFEED ON TABLE debezium_signal TO demo;
 
 -- Insert sample customers
 INSERT INTO customers (name, email, tier) VALUES

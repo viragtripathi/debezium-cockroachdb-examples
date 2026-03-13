@@ -249,24 +249,76 @@ else
 fi
 echo ""
 
-# ── Step 15: Show debug logs from source connector ─────────────────────────
-header "STEP 15: Source Connector Debug Logs (event processing + schema evolution)"
+# ── Step 15: Incremental Snapshot Demo ──────────────────────────────────────
+header "STEP 15: Incremental Snapshot Demo (signal-based re-snapshot -- no restart)"
+info "Triggering incremental snapshot of orders table via signaling table..."
+docker exec -i demo-cockroachdb cockroach sql --insecure < demo-incremental-snapshot.sql
+success "Incremental snapshot signal inserted into debezium_signal table"
+
+info "Waiting 20s for incremental snapshot to complete..."
+sleep 20
+
+info "Checking for snapshot records (op=r) in Kafka events..."
+SNAP_EVENTS=$(docker exec demo-kafka kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic crdb.public.orders \
+    --from-beginning \
+    --max-messages 50 \
+    --timeout-ms 15000 2>/dev/null || true)
+
+SNAP_COUNT=$(echo "$SNAP_EVENTS" | python3 -c "
+import sys,json
+count=0
+for line in sys.stdin:
+    line=line.strip()
+    if not line: continue
+    try:
+        d=json.loads(line)
+        payload = d.get('payload', d)
+        if payload.get('op') == 'r':
+            count += 1
+    except: pass
+print(count)
+" 2>/dev/null || echo "0")
+
+if [ "$SNAP_COUNT" -gt 0 ]; then
+    success "Incremental snapshot complete: $SNAP_COUNT snapshot records (op=r) emitted"
+    echo "$SNAP_EVENTS" | python3 -c "
+import sys,json
+for line in sys.stdin:
+    line=line.strip()
+    if not line: continue
+    try:
+        d=json.loads(line)
+        payload = d.get('payload', d)
+        if payload.get('op') == 'r':
+            after = payload.get('after',{})
+            print(f'    op=r  order={after.get(\"order_number\",\"\")}  amount={after.get(\"amount\",\"\")}  status={after.get(\"status\",\"\")}')
+    except: pass
+" 2>/dev/null
+else
+    warn "No snapshot records found yet (incremental snapshot may still be running)"
+fi
+echo ""
+
+# ── Step 16: Show debug logs from source connector ─────────────────────────
+header "STEP 16: Source Connector Debug Logs (event processing + schema evolution)"
 echo ""
 docker logs demo-connect 2>&1 \
     | grep -E "CockroachDB.*Registered table|CockroachDB.*Consuming from|CockroachDB.*changefeed|CockroachDB.*Dispatching|CockroachDB.*offset|CockroachDB.*Snapshot|CockroachDB.*dispatch|Schema change detected|Schema refreshed" \
     | tail -20
 echo ""
 
-# ── Step 16: Show debug logs from sink connector ───────────────────────────
-header "STEP 16: JDBC Sink Connector Debug Logs (writing to target)"
+# ── Step 17: Show debug logs from sink connector ───────────────────────────
+header "STEP 17: JDBC Sink Connector Debug Logs (writing to target)"
 echo ""
 docker logs demo-connect 2>&1 \
     | grep -iE "Flushing records|CREATE TABLE|ALTER TABLE|upsert|Skipping tombstone|Using dialect|Database version|orders|customers" \
     | tail -15
 echo ""
 
-# ── Step 17: Check for errors ──────────────────────────────────────────────
-header "STEP 17: Error Check"
+# ── Step 18: Check for errors ──────────────────────────────────────────────
+header "STEP 18: Error Check"
 ERRORS=$(docker logs demo-connect 2>&1 \
     | grep -E "^[0-9]{4}-.*ERROR" \
     | grep -v "errors\.\|error_code\|config_mismatch" \
@@ -278,13 +330,13 @@ else
     echo "$ERRORS"
 fi
 
-# ── Step 18: Kafka topics ──────────────────────────────────────────────────
-header "STEP 18: Kafka Topics"
+# ── Step 19: Kafka topics ──────────────────────────────────────────────────
+header "STEP 19: Kafka Topics"
 docker exec demo-kafka kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null \
     | grep -v "^_\|connect-\|demo-connect" | sort
 
-# ── Step 19: Consume Debezium events from output topic ─────────────────────
-header "STEP 19: Debezium Change Events (orders + customers topics)"
+# ── Step 20: Consume Debezium events from output topic ─────────────────────
+header "STEP 20: Debezium Change Events (orders + customers topics)"
 for TOPIC in crdb.public.orders crdb.public.customers; do
     info "Topic: $TOPIC"
     EVENTS=$(docker exec demo-kafka kafka-console-consumer \
@@ -318,8 +370,8 @@ for line in sys.stdin:
     echo ""
 done
 
-# ── Step 20: Verify data in target CockroachDB ────────────────────────────
-header "STEP 20: Verify Data in Target CockroachDB (CRDB->Kafka->CRDB round-trip)"
+# ── Step 21: Verify data in target CockroachDB ────────────────────────────
+header "STEP 21: Verify Data in Target CockroachDB (CRDB->Kafka->CRDB round-trip)"
 echo ""
 info "Querying target CRDB -- orders (crdb_public_orders):"
 echo ""
@@ -357,7 +409,7 @@ TGT_CUST=$(docker exec demo-cockroachdb-target cockroach sql --insecure -d targe
 echo "  Source orders:    $SRC_ORD rows   |  Target orders:    $TGT_ORD rows"
 echo "  Source customers: $SRC_CUST rows   |  Target customers: $TGT_CUST rows"
 
-# ── Step 21: Summary ───────────────────────────────────────────────────────
+# ── Step 22: Summary ───────────────────────────────────────────────────────
 header "DEMO COMPLETE"
 echo ""
 echo "  Architecture (multi-table changefeed):"
