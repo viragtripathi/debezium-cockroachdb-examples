@@ -24,10 +24,17 @@ to the target with full before/after images and Debezium envelope metadata.
 
 ## Prerequisites
 
-- Docker and Docker Compose
+- Docker and Docker Compose (or Podman)
+
+**To build from source (optional):**
 - JDK 21+
 - Maven 3.9.8+
 - The connector source at `../debezium-connector-cockroachdb`
+
+**To skip the build**, place the connector plugin jars in `connect-plugins/debezium-connector-cockroachdb/` and run:
+```bash
+SKIP_BUILD=true ./run-demo.sh
+```
 
 ## Quick Start
 
@@ -35,28 +42,41 @@ to the target with full before/after images and Debezium envelope metadata.
 ./run-demo.sh
 ```
 
-The script is fully automated and runs through 20 steps:
+Override component versions via environment variables:
+```bash
+COCKROACHDB_VERSION=v26.1.0 DEBEZIUM_VERSION=3.5.0.Beta1 ./run-demo.sh
+```
 
-1. **Build** the connector plugin from source (`mvn package`)
+| Variable | Default | Description |
+|---|---|---|
+| `COCKROACHDB_VERSION` | `v25.4.6` | CockroachDB image tag |
+| `DEBEZIUM_VERSION` | `3.4.2.Final` | Debezium Connect image tag |
+| `CONFLUENT_VERSION` | `7.4.0` | Confluent Platform (Kafka/ZK) image tag |
+| `SKIP_BUILD` | `false` | Skip building from source, use pre-built plugin |
+
+The script is fully automated and runs through 21 steps:
+
+1. **Build** the connector plugin from source (or skip with `SKIP_BUILD=true`)
 2. **Extract** the plugin into `connect-plugins/`
 3. **Start** Docker Compose (source CRDB, target CRDB, Zookeeper, Kafka, Kafka Connect)
 4. **Wait** for source CockroachDB (port 26257)
 5. **Wait** for target CockroachDB (port 26258)
-6. **Setup source database**: create `demodb`, `orders` table, enable rangefeed, grant permissions
-7. **Setup target database**: create `targetdb` (table auto-created by sink connector)
+6. **Setup source database**: create `demodb`, `orders` + `customers` tables, enable rangefeed, grant permissions
+7. **Setup target database**: create `targetdb` (tables auto-created by sink connector)
 8. **Wait** for Kafka Connect REST API (port 8083)
 9. **Verify** both connector plugins are discovered (source + sink)
 10. **Deploy** the Debezium CockroachDB source connector
 11. **Insert** 3 rows into source (after changefeed creation so they are captured)
 12. **Deploy** the Debezium JDBC sink connector (writes to target CRDB)
-13. **Run DML** operations: 2 UPDATEs, 1 DELETE
-14. **Show source connector debug logs** (changefeed processing, event dispatching)
-15. **Show JDBC sink connector debug logs** (CREATE TABLE, flushing records, tombstones)
-16. **Error check** (verify zero connector errors)
-17. **List Kafka topics**
-18. **Display Debezium change events** from the output topic (op=c, op=u, op=d)
-19. **Verify data in target CRDB** and compare source vs target row counts
-20. **Print summary** with all service URLs and interactive commands
+13. **Run DML** operations: 2 UPDATEs, 1 DELETE, 1 customer UPDATE, 1 customer INSERT
+14. **Schema evolution demo**: `ALTER TABLE ADD COLUMN priority` -- detected without restart
+15. **Show source connector debug logs** (changefeed processing, schema detection)
+16. **Show JDBC sink connector debug logs** (CREATE TABLE, flushing records, tombstones)
+17. **Error check** (verify zero connector errors)
+18. **List Kafka topics**
+19. **Display Debezium change events** from the output topic (op=c, op=u, op=d)
+20. **Verify data in target CRDB** and compare source vs target row counts
+21. **Print summary** with all service URLs and interactive commands
 
 ## What the Demo Proves
 
@@ -65,6 +85,7 @@ The script is fully automated and runs through 20 steps:
 | INSERT replication | Rows inserted in source appear in target |
 | UPDATE replication | Column changes (amount, status) propagated to target |
 | DELETE replication | Deleted rows removed from target via tombstone events |
+| Schema evolution | `ALTER TABLE ADD COLUMN` detected automatically without restart |
 | Schema auto-creation | Target table created automatically by JDBC sink (`schema.evolution=basic`) |
 | Upsert mode | Idempotent writes using `INSERT ... ON CONFLICT ... DO UPDATE` |
 | Heartbeat support | Resolved timestamps advance offsets and emit heartbeat records |
@@ -203,10 +224,10 @@ CREATE TABLE orders (
 | `setup-cockroachdb.sql` | Source DB setup: database, table, permissions, sample data |
 | `setup-target-cockroachdb.sql` | Target DB setup: database creation |
 | `demo-operations.sql` | DML operations (UPDATE, DELETE) run during the demo |
+| `demo-schema-evolution.sql` | Schema evolution demo: ALTER TABLE ADD COLUMN without restart |
 
 ## Known Limitations
 
-- **Schema evolution**: Adding/dropping columns after changefeed creation is not yet handled. Restart the connector after schema changes.
 - **CockroachDB insecure mode**: The demo uses `--insecure` for simplicity. For production, use SSL certificates.
 - **Hibernate dialect**: The JDBC sink requires `hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect`. While CockroachDB has a first-class [`CockroachDialect`](https://docs.hibernate.org/orm/6.3/javadocs/org/hibernate/dialect/CockroachDialect.html) in Hibernate 6.x ([CockroachDB + Hibernate docs](https://www.cockroachlabs.com/docs/stable/build-a-java-app-with-cockroachdb-hibernate)), the Debezium JDBC sink's `DatabaseDialectResolver` does not yet have a CockroachDB-specific `DatabaseDialectProvider`. Since `CockroachDialect` extends `Dialect` directly (not `PostgreSQLDialect`), the resolver falls back to `GeneralDatabaseDialect` which lacks upsert support. Using `PostgreSQLDialect` correctly maps to the Debezium `PostgresDatabaseDialect`, which generates the `INSERT ... ON CONFLICT ... DO UPDATE` syntax that CockroachDB supports. Adding a `CockroachDBDatabaseDialectProvider` to the Debezium JDBC sink is a natural follow-up enhancement.
 

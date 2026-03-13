@@ -3,6 +3,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECTOR_PROJECT="${SCRIPT_DIR}/../debezium-connector-cockroachdb"
+SKIP_BUILD="${SKIP_BUILD:-false}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -52,22 +53,36 @@ wait_for_task_running() {
 
 # ── Step 1: Build connector plugin ──────────────────────────────────────────
 header "STEP 1: Build Connector Plugin"
-if [ ! -d "$CONNECTOR_PROJECT" ]; then
-    fail "Connector project not found at $CONNECTOR_PROJECT"
-fi
-cd "$CONNECTOR_PROJECT"
-./mvnw clean package -DskipTests -DskipITs -Passembly -q
-PLUGIN_ZIP=$(ls target/debezium-connector-cockroachdb-*-plugin.zip 2>/dev/null | head -1)
-[ -z "$PLUGIN_ZIP" ] && fail "Plugin zip not found after build"
-success "Connector built: $(basename "$PLUGIN_ZIP")"
+if [ "$SKIP_BUILD" = "true" ] && [ -d "$SCRIPT_DIR/connect-plugins/debezium-connector-cockroachdb" ] \
+    && [ -n "$(ls "$SCRIPT_DIR/connect-plugins/debezium-connector-cockroachdb/"*.jar 2>/dev/null)" ]; then
+    success "Using pre-built plugin in connect-plugins/ (SKIP_BUILD=true)"
+else
+    if [ ! -d "$CONNECTOR_PROJECT" ]; then
+        echo ""
+        warn "Connector project not found at $CONNECTOR_PROJECT"
+        info "To run without building from source, place the connector jars in connect-plugins/debezium-connector-cockroachdb/"
+        info "  Option 1: Download from a release or CI artifact"
+        info "  Option 2: Clone and build:"
+        echo "    git clone https://github.com/debezium/debezium-connector-cockroachdb.git ../debezium-connector-cockroachdb"
+        echo "    cd ../debezium-connector-cockroachdb && ./mvnw clean package -DskipTests -Passembly"
+        echo "    Then re-run this script."
+        fail "Cannot proceed without connector plugin"
+    fi
+    cd "$CONNECTOR_PROJECT"
+    info "Building connector from source..."
+    ./mvnw clean package -DskipTests -DskipITs -Passembly -q
+    PLUGIN_ZIP=$(ls target/debezium-connector-cockroachdb-*-plugin.zip 2>/dev/null | head -1)
+    [ -z "$PLUGIN_ZIP" ] && fail "Plugin zip not found after build"
+    success "Connector built: $(basename "$PLUGIN_ZIP")"
 
-# ── Step 2: Prepare plugin directory ────────────────────────────────────────
-header "STEP 2: Prepare Plugin Directory"
-cd "$SCRIPT_DIR"
-rm -rf connect-plugins
-mkdir -p connect-plugins
-unzip -q -o "$CONNECTOR_PROJECT/$PLUGIN_ZIP" -d connect-plugins/
-success "Plugin extracted to connect-plugins/"
+    # ── Step 2: Prepare plugin directory ────────────────────────────────────
+    header "STEP 2: Prepare Plugin Directory"
+    cd "$SCRIPT_DIR"
+    rm -rf connect-plugins
+    mkdir -p connect-plugins
+    unzip -q -o "$CONNECTOR_PROJECT/$PLUGIN_ZIP" -d connect-plugins/
+    success "Plugin extracted to connect-plugins/"
+fi
 
 # ── Step 3: Start infrastructure ────────────────────────────────────────────
 header "STEP 3: Start Docker Compose (Source CRDB + Target CRDB + Kafka + Connect)"
@@ -197,24 +212,61 @@ success "DML operations executed: 2 order UPDATEs, 1 order DELETE, 1 customer UP
 info "Waiting 15s for events to propagate through the full pipeline..."
 sleep 15
 
-# ── Step 14: Show debug logs from source connector ─────────────────────────
-header "STEP 14: Source Connector Debug Logs (event processing)"
-echo ""
-docker logs demo-connect 2>&1 \
-    | grep -E "CockroachDB.*Registered table|CockroachDB.*Consuming from|CockroachDB.*changefeed|CockroachDB.*Dispatching|CockroachDB.*offset|CockroachDB.*Snapshot|CockroachDB.*dispatch" \
-    | tail -15
+# ── Step 14: Schema Evolution Demo ─────────────────────────────────────────
+header "STEP 14: Schema Evolution Demo (ALTER TABLE ADD COLUMN -- no restart)"
+info "Adding 'priority' column to orders table..."
+docker exec -i demo-cockroachdb cockroach sql --insecure < demo-schema-evolution.sql
+success "Schema evolution SQL executed: ADD COLUMN, INSERT with new column, UPDATE existing row"
+
+info "Waiting 20s for CockroachDB backfill and connector schema detection..."
+sleep 20
+
+info "Checking if new 'priority' field appears in Kafka events..."
+SCHEMA_EVENTS=$(docker exec demo-kafka kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic crdb.public.orders \
+    --from-beginning \
+    --max-messages 30 \
+    --timeout-ms 15000 2>/dev/null || true)
+
+if echo "$SCHEMA_EVENTS" | grep -q '"priority"'; then
+    success "Schema evolution detected: 'priority' field present in change events"
+    echo "$SCHEMA_EVENTS" | python3 -c "
+import sys,json
+for line in sys.stdin:
+    line=line.strip()
+    if not line: continue
+    try:
+        d=json.loads(line)
+        after = d.get('payload',{}).get('after',{})
+        if after and 'priority' in after:
+            op = d['payload']['op']
+            print(f'    op={op}  order={after.get(\"order_number\",\"\")}  priority={after.get(\"priority\",\"\")}')
+    except: pass
+" 2>/dev/null
+else
+    warn "Priority field not yet visible (backfill may still be in progress)"
+fi
 echo ""
 
-# ── Step 15: Show debug logs from sink connector ───────────────────────────
-header "STEP 15: JDBC Sink Connector Debug Logs (writing to target)"
+# ── Step 15: Show debug logs from source connector ─────────────────────────
+header "STEP 15: Source Connector Debug Logs (event processing + schema evolution)"
+echo ""
+docker logs demo-connect 2>&1 \
+    | grep -E "CockroachDB.*Registered table|CockroachDB.*Consuming from|CockroachDB.*changefeed|CockroachDB.*Dispatching|CockroachDB.*offset|CockroachDB.*Snapshot|CockroachDB.*dispatch|Schema change detected|Schema refreshed" \
+    | tail -20
+echo ""
+
+# ── Step 16: Show debug logs from sink connector ───────────────────────────
+header "STEP 16: JDBC Sink Connector Debug Logs (writing to target)"
 echo ""
 docker logs demo-connect 2>&1 \
     | grep -iE "Flushing records|CREATE TABLE|ALTER TABLE|upsert|Skipping tombstone|Using dialect|Database version|orders|customers" \
     | tail -15
 echo ""
 
-# ── Step 16: Check for errors ──────────────────────────────────────────────
-header "STEP 16: Error Check"
+# ── Step 17: Check for errors ──────────────────────────────────────────────
+header "STEP 17: Error Check"
 ERRORS=$(docker logs demo-connect 2>&1 \
     | grep -E "^[0-9]{4}-.*ERROR" \
     | grep -v "errors\.\|error_code\|config_mismatch" \
@@ -226,13 +278,13 @@ else
     echo "$ERRORS"
 fi
 
-# ── Step 17: Kafka topics ──────────────────────────────────────────────────
-header "STEP 17: Kafka Topics"
+# ── Step 18: Kafka topics ──────────────────────────────────────────────────
+header "STEP 18: Kafka Topics"
 docker exec demo-kafka kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null \
     | grep -v "^_\|connect-\|demo-connect" | sort
 
-# ── Step 18: Consume Debezium events from output topic ─────────────────────
-header "STEP 18: Debezium Change Events (orders + customers topics)"
+# ── Step 19: Consume Debezium events from output topic ─────────────────────
+header "STEP 19: Debezium Change Events (orders + customers topics)"
 for TOPIC in crdb.public.orders crdb.public.customers; do
     info "Topic: $TOPIC"
     EVENTS=$(docker exec demo-kafka kafka-console-consumer \
@@ -266,8 +318,8 @@ for line in sys.stdin:
     echo ""
 done
 
-# ── Step 19: Verify data in target CockroachDB ────────────────────────────
-header "STEP 19: Verify Data in Target CockroachDB (CRDB->Kafka->CRDB round-trip)"
+# ── Step 20: Verify data in target CockroachDB ────────────────────────────
+header "STEP 20: Verify Data in Target CockroachDB (CRDB->Kafka->CRDB round-trip)"
 echo ""
 info "Querying target CRDB -- orders (crdb_public_orders):"
 echo ""
@@ -305,7 +357,7 @@ TGT_CUST=$(docker exec demo-cockroachdb-target cockroach sql --insecure -d targe
 echo "  Source orders:    $SRC_ORD rows   |  Target orders:    $TGT_ORD rows"
 echo "  Source customers: $SRC_CUST rows   |  Target customers: $TGT_CUST rows"
 
-# ── Step 20: Summary ───────────────────────────────────────────────────────
+# ── Step 21: Summary ───────────────────────────────────────────────────────
 header "DEMO COMPLETE"
 echo ""
 echo "  Architecture (multi-table changefeed):"
