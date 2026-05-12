@@ -156,16 +156,29 @@ success "Kafka Connect is ready"
 
 # ── Step 9: Verify plugins ─────────────────────────────────────────────────
 header "STEP 9: Verify Connector Plugins"
-PLUGINS=$(curl -s http://localhost:8083/connector-plugins)
+info "Waiting for connector plugins to be discovered (Connect REST API can respond before scan completes)..."
+PLUGINS=""
+for i in $(seq 1 30); do
+    PLUGINS=$(curl -s http://localhost:8083/connector-plugins 2>/dev/null || echo "")
+    if echo "$PLUGINS" | grep -q "CockroachDBConnector" && echo "$PLUGINS" | grep -q "JdbcSinkConnector"; then
+        break
+    fi
+    echo -n "."
+    sleep 2
+done
+echo ""
 echo "$PLUGINS" | python3 -c "
 import sys,json
-for p in json.load(sys.stdin):
-    c = p['class']
-    if 'cockroachdb' in c.lower() or 'jdbc' in c.lower():
-        print(f'  {p[\"type\"]:6s}  {c}')
-" 2>/dev/null
-echo "$PLUGINS" | grep -q "CockroachDBConnector" || fail "CockroachDB source connector not found"
-echo "$PLUGINS" | grep -q "JdbcSinkConnector" || fail "JDBC sink connector not found"
+try:
+    for p in json.load(sys.stdin):
+        c = p['class']
+        if 'cockroachdb' in c.lower() or 'jdbc' in c.lower():
+            print(f'  {p[\"type\"]:6s}  {c}')
+except Exception:
+    pass
+" 2>/dev/null || true
+echo "$PLUGINS" | grep -q "CockroachDBConnector" || fail "CockroachDB source connector not found after waiting 60s"
+echo "$PLUGINS" | grep -q "JdbcSinkConnector" || fail "JDBC sink connector not found after waiting 60s"
 success "Both source and sink connector plugins discovered"
 
 # ── Step 10: Deploy source connector ───────────────────────────────────────

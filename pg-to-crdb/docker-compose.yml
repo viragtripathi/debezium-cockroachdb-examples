@@ -55,7 +55,7 @@ services:
       start_period: 10s
 
   cockroachdb-target:
-    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.8}
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
     hostname: cockroachdb-target
     container_name: pg2crdb-cockroachdb-target
     command: start-single-node --insecure
