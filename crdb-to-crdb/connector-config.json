@@ -9,7 +9,7 @@
     "database.dbname": "demodb",
     "database.server.name": "cockroachdb",
     "topic.prefix": "crdb",
-    "table.include.list": "public.orders,public.customers,public.debezium_signal",
+    "table.include.list": "public.orders,public.customers,public.debezium_signal,inventory.warehouse_items",
     "signal.data.collection": "demodb.public.debezium_signal",
     "cockroachdb.changefeed.envelope": "enriched",
     "cockroachdb.changefeed.enriched.properties": "source,schema",

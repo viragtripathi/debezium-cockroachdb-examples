@@ -43,6 +43,15 @@ CREATE TABLE IF NOT EXISTS debezium_signal (
     data STRING
 );
 
+-- Non-public schema to demonstrate cross-schema table.include.list (debezium/dbz#1973)
+CREATE SCHEMA IF NOT EXISTS inventory;
+CREATE TABLE IF NOT EXISTS inventory.warehouse_items (
+    sku INT PRIMARY KEY,
+    description STRING NOT NULL,
+    quantity INT DEFAULT 0,
+    updated_at TIMESTAMPTZ DEFAULT current_timestamp()
+);
+
 -- Grant permissions
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE orders TO demo;
 GRANT CHANGEFEED ON TABLE orders TO demo;
@@ -50,6 +59,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE customers TO demo;
 GRANT CHANGEFEED ON TABLE customers TO demo;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE debezium_signal TO demo;
 GRANT CHANGEFEED ON TABLE debezium_signal TO demo;
+GRANT USAGE ON SCHEMA inventory TO demo;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE inventory.warehouse_items TO demo;
+GRANT CHANGEFEED ON TABLE inventory.warehouse_items TO demo;
 
 -- Insert sample customers
 INSERT INTO customers (name, email, tier) VALUES
@@ -68,3 +80,9 @@ INSERT INTO orders (order_number, customer_name, email, amount, status, items, t
     ('ORD-1003', 'Carol Davis', 'carol@example.com', 34.99, 'shipped',
      '{"products": [{"name": "Programming Book", "qty": 1, "price": 34.99}]}',
      ARRAY['books', 'education'], 0.55, false);
+
+-- Seed the non-public schema table
+INSERT INTO inventory.warehouse_items (sku, description, quantity) VALUES
+    (1001, 'wireless headphones', 42),
+    (1002, 'mechanical keyboard', 18),
+    (1003, 'usb-c hub', 7);

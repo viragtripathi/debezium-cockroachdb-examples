@@ -136,9 +136,9 @@ done
 docker exec demo-cockroachdb-target cockroach sql --insecure -e "SELECT 1" >/dev/null 2>&1 || fail "Target CockroachDB did not start"
 
 # ── Step 6: Setup source database ──────────────────────────────────────────
-header "STEP 6: Setup Source Database (demodb: orders + customers)"
+header "STEP 6: Setup Source Database (demodb: orders + customers + inventory.warehouse_items)"
 docker exec -i demo-cockroachdb cockroach sql --insecure < setup-cockroachdb.sql
-success "Source DB configured: demodb with orders (3 rows) and customers (3 rows) tables"
+success "Source DB configured: demodb with public.orders, public.customers, and inventory.warehouse_items (3 rows each)"
 
 # ── Step 7: Setup target database ──────────────────────────────────────────
 header "STEP 7: Setup Target Database (targetdb)"
@@ -403,6 +403,49 @@ for line in sys.stdin:
     fi
     echo ""
 done
+
+# ── Step 20b: Multi-schema regression (debezium/dbz#1973) ──────────────────
+header "STEP 20b: Multi-Schema Regression (debezium/dbz#1973)"
+info "Verifying that inventory.warehouse_items (non-public schema) is streamed end-to-end..."
+docker exec -i demo-cockroachdb cockroach sql --insecure -d demodb -e "
+INSERT INTO inventory.warehouse_items (sku, description, quantity) VALUES
+    (2001, 'noise-cancelling earbuds', 25),
+    (2002, 'portable monitor', 9);
+UPDATE inventory.warehouse_items SET quantity = 50 WHERE sku = 1001;
+" 2>&1
+sleep 10
+
+INV_TOPIC="crdb.inventory.warehouse_items"
+INV_EVENTS=$(docker exec demo-kafka kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic "$INV_TOPIC" \
+    --from-beginning \
+    --max-messages 20 \
+    --timeout-ms 10000 2>/dev/null || true)
+
+if [ -z "$INV_EVENTS" ]; then
+    fail "No events on $INV_TOPIC -- non-public schema table was dropped by discovery (dbz#1973 regression)"
+fi
+
+INV_COUNT=$(echo "$INV_EVENTS" | grep -c '^{' || true)
+success "$INV_TOPIC streamed $INV_COUNT events -- non-public schema is honored"
+echo "$INV_EVENTS" | python3 -c "
+import sys,json
+for line in sys.stdin:
+    line=line.strip()
+    if not line: continue
+    try:
+        d=json.loads(line)
+        payload = d.get('payload', d)
+        op = payload.get('op','?')
+        after = payload.get('after') or {}
+        sku = after.get('sku','?')
+        desc = after.get('description','')
+        qty = after.get('quantity','')
+        print(f'    op={op}  sku={sku}  description={desc}  quantity={qty}')
+    except: pass
+" 2>/dev/null
+echo ""
 
 # ── Step 21: Verify data in target CockroachDB ────────────────────────────
 header "STEP 21: Verify Data in Target CockroachDB (CRDB->Kafka->CRDB round-trip)"
