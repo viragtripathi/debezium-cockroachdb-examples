@@ -37,7 +37,7 @@ must succeed for events to flow.
                   │ kafka:9092 (PLAINTEXT — same broker,   │
                   │ same data, different listener)         │
                   ▼                                        │
-   Kafka topic: crdb.public.orders   ◀────────────────────┘
+   Kafka topic: crdb.public.orders    ◀────────────────────┘
    (Debezium output, JSON)              CRDB writes to: crdb.demodb.public.orders
 ```
 
@@ -75,15 +75,15 @@ The default is `BUILD_FROM_SOURCE=true` because the mTLS feature requires
 BUILD_FROM_SOURCE=false CONNECTOR_VERSION=3.6.0.Final ./run-demo.sh
 ```
 
-| Variable              | Default            | Description                                                  |
-|-----------------------|--------------------|--------------------------------------------------------------|
-| `CONNECTOR_VERSION`   | `3.6.0-SNAPSHOT`   | Connector plugin version                                     |
-| `COCKROACHDB_VERSION` | `v25.4.10`         | CockroachDB image tag (and the image used for `cockroach cert`) |
-| `DEBEZIUM_VERSION`    | `3.5.0.Final`      | Debezium Connect image tag                                   |
-| `CONFLUENT_VERSION`   | `7.4.0`            | Confluent Platform (Kafka/ZK) image tag                      |
-| `BUILD_FROM_SOURCE`   | `true`             | Build connector from local source instead of downloading     |
-| `SKIP_BUILD`          | `false`            | Skip download/build, use existing jars in `connect-plugins/` |
-| `REGENERATE_CERTS`    | `false`            | Force `generate-certs.sh` to rebuild material in `certs/`    |
+| Variable              | Default          | Description                                                     |
+|-----------------------|------------------|-----------------------------------------------------------------|
+| `CONNECTOR_VERSION`   | `3.6.0-SNAPSHOT` | Connector plugin version                                        |
+| `COCKROACHDB_VERSION` | `v25.4.10`       | CockroachDB image tag (and the image used for `cockroach cert`) |
+| `DEBEZIUM_VERSION`    | `3.5.0.Final`    | Debezium Connect image tag                                      |
+| `CONFLUENT_VERSION`   | `7.4.0`          | Confluent Platform (Kafka/ZK) image tag                         |
+| `BUILD_FROM_SOURCE`   | `true`           | Build connector from local source instead of downloading        |
+| `SKIP_BUILD`          | `false`          | Skip download/build, use existing jars in `connect-plugins/`    |
+| `REGENERATE_CERTS`    | `false`          | Force `generate-certs.sh` to rebuild material in `certs/`       |
 
 ## TLS Material
 
