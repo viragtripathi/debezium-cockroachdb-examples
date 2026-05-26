@@ -65,7 +65,7 @@ The script is fully automated and runs through 22 steps:
 3. **Start** Docker Compose (source CRDB, target CRDB, Zookeeper, Kafka, Kafka Connect)
 4. **Wait** for source CockroachDB (port 26257)
 5. **Wait** for target CockroachDB (port 26258)
-6. **Setup source database**: create `demodb`, `orders` + `customers` tables, enable rangefeed, grant permissions
+6. **Setup source database**: create `demodb`, `public.orders` + `public.customers` + `inventory.warehouse_items` tables (multi-schema), enable rangefeed, grant permissions
 7. **Setup target database**: create `targetdb` (tables auto-created by sink connector)
 8. **Wait** for Kafka Connect REST API (port 8083)
 9. **Verify** both connector plugins are discovered (source + sink)
@@ -80,6 +80,7 @@ The script is fully automated and runs through 22 steps:
 18. **Error check** (verify zero connector errors)
 19. **List Kafka topics**
 20. **Display Debezium change events** from the output topic (op=c, op=u, op=d)
+20b. **Multi-schema regression check** ([debezium/dbz#1973](https://issues.redhat.com/browse/DBZ-1973)): verify events from `inventory.warehouse_items` appear on `crdb.inventory.warehouse_items`
 21. **Verify data in target CRDB** and compare source vs target row counts
 22. **Print summary** with all service URLs and interactive commands
 
@@ -90,6 +91,7 @@ The script is fully automated and runs through 22 steps:
 | INSERT replication    | Rows inserted in source appear in target                                   |
 | UPDATE replication    | Column changes (amount, status) propagated to target                       |
 | DELETE replication    | Deleted rows removed from target via tombstone events                      |
+| Multi-schema capture  | Tables from non-`public` schemas (e.g. `inventory.warehouse_items`) flow through with their schema name in the topic ([debezium/dbz#1973](https://issues.redhat.com/browse/DBZ-1973)) |
 | Schema evolution      | `ALTER TABLE ADD COLUMN` detected automatically without restart            |
 | Incremental snapshots | Signal-based re-snapshot of existing data without stopping the connector   |
 | Schema auto-creation  | Target table created automatically by JDBC sink (`schema.evolution=basic`) |
@@ -117,7 +119,7 @@ The script is fully automated and runs through 22 steps:
 |---------------------------------------|---------------------------------------------------------|------------------------------------------------------------|
 | `connector.class`                     | `CockroachDBConnector`                                  | Debezium CockroachDB source connector                      |
 | `topic.prefix`                        | `crdb`                                                  | Prefix for output Kafka topics                             |
-| `table.include.list`                  | `public.orders,public.customers,public.debezium_signal` | Tables to capture (schema.table format)                    |
+| `table.include.list`                  | `public.orders,public.customers,public.debezium_signal,inventory.warehouse_items` | Tables to capture (schema.table format) — includes a non-`public` schema to exercise [debezium/dbz#1973](https://issues.redhat.com/browse/DBZ-1973) |
 | `signal.data.collection`              | `demodb.public.debezium_signal`                         | Signaling table for incremental snapshots                  |
 | `cockroachdb.changefeed.envelope`     | `enriched`                                              | Uses CockroachDB enriched changefeed format                |
 | `cockroachdb.changefeed.include.diff` | `true`                                                  | Include before-image for updates                           |
@@ -228,7 +230,7 @@ CREATE TABLE orders (
 | `docker-compose.yml`            | 5-service stack: Zookeeper, Kafka, source CRDB, target CRDB, Kafka Connect |
 | `connector-config.json`         | Debezium CockroachDB source connector configuration                        |
 | `sink-connector-config.json`    | Debezium JDBC sink connector configuration                                 |
-| `setup-cockroachdb.sql`         | Source DB setup: database, table, permissions, sample data                 |
+| `setup-cockroachdb.sql`         | Source DB setup: database, `public.orders` + `public.customers` + `inventory.warehouse_items` (multi-schema), permissions, sample data |
 | `setup-target-cockroachdb.sql`  | Target DB setup: database creation                                         |
 | `demo-operations.sql`           | DML operations (UPDATE, DELETE) run during the demo                        |
 | `demo-schema-evolution.sql`     | Schema evolution demo: ALTER TABLE ADD COLUMN without restart              |
