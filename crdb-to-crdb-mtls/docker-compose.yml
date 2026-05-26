@@ -1,0 +1,100 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:${CONFLUENT_VERSION:-7.4.0}
+    hostname: zookeeper
+    container_name: mtls-demo-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:${CONFLUENT_VERSION:-7.4.0}
+    hostname: kafka
+    container_name: mtls-demo-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9093:9093"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # PLAINTEXT: inter-broker + Connect worker bookkeeping (in-network)
+      # SSL:       mTLS listener — CockroachDB pushes the changefeed here
+      # HOST:      exposed to the host machine for tooling
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,SSL://0.0.0.0:9093,HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,SSL://kafka:9093,HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SSL:SSL,HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_SSL_KEYSTORE_FILENAME: broker.keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: keystore_creds
+      KAFKA_SSL_KEY_CREDENTIALS: key_creds
+      KAFKA_SSL_TRUSTSTORE_FILENAME: broker.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: truststore_creds
+      KAFKA_SSL_CLIENT_AUTH: required
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+    volumes:
+      - ./certs/kafka:/etc/kafka/secrets:ro
+
+  cockroachdb:
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    hostname: cockroachdb
+    container_name: mtls-demo-cockroachdb
+    command: start-single-node --certs-dir=/cockroach/cockroach-certs --advertise-addr=cockroachdb
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+    volumes:
+      - ./certs/crdb:/cockroach/cockroach-certs:ro
+    healthcheck:
+      test:
+        - CMD
+        - cockroach
+        - sql
+        - --certs-dir=/cockroach/cockroach-certs
+        - --host=cockroachdb:26257
+        - --user=root
+        - -e
+        - SELECT 1
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 15s
+
+  connect:
+    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.5.0.Final}
+    hostname: connect
+    container_name: mtls-demo-connect
+    depends_on:
+      - cockroachdb
+      - kafka
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: mtls-demo-connect-cluster
+      CONFIG_STORAGE_TOPIC: mtls-demo-connect-configs
+      OFFSET_STORAGE_TOPIC: mtls-demo-connect-offsets
+      STATUS_STORAGE_TOPIC: mtls-demo-connect-status
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      LOG_LEVEL: INFO
+      CONNECT_LOG4J_LOGGER_IO_DEBEZIUM_CONNECTOR_COCKROACHDB: DEBUG
+      CONNECT_LOG4J_LOGGER_ORG_APACHE_KAFKA: WARN
+    volumes:
+      - ./connect-plugins:/kafka/connect/debezium-connector-cockroachdb
+      # Kafka mTLS PEM — base64-inlined into the changefeed URI by the connector
+      - ./certs/kafka:/etc/kafka-tls:ro
+      # CRDB secure-mode PEM + PKCS#8 DER key — used by pgjdbc to reach CRDB
+      - ./certs/crdb:/etc/crdb-tls:ro
+
+networks:
+  default:
+    name: debezium-mtls-demo
