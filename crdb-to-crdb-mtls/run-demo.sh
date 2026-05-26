@@ -92,7 +92,15 @@ if [ "$SKIP_BUILD" = "true" ] && [ -d "$SCRIPT_DIR/connect-plugins/debezium-conn
 elif [ "$BUILD_FROM_SOURCE" = "true" ]; then
     [ -d "$CONNECTOR_PROJECT" ] || fail "BUILD_FROM_SOURCE=true but connector project not found at $CONNECTOR_PROJECT"
     cd "$CONNECTOR_PROJECT"
-    info "Building connector ${CONNECTOR_VERSION} from source (mTLS feature requires 3.6.0-SNAPSHOT or later)..."
+    SOURCE_VERSION=$(./mvnw -q help:evaluate -Dexpression=project.version -DforceStdout 2>/dev/null || echo "unknown")
+    if [ -n "${CONNECTOR_VERSION_OVERRIDE:-}" ] || \
+       { [ "$CONNECTOR_VERSION" != "3.6.0-SNAPSHOT" ] && [ "$CONNECTOR_VERSION" != "$SOURCE_VERSION" ]; }; then
+        warn "CONNECTOR_VERSION=${CONNECTOR_VERSION} is ignored when BUILD_FROM_SOURCE=true."
+        warn "  Maven will build whatever is checked out at ${CONNECTOR_PROJECT} (project.version=${SOURCE_VERSION})."
+        warn "  To build a specific tag: git -C ${CONNECTOR_PROJECT} checkout v${CONNECTOR_VERSION} first."
+        warn "  To download a released version instead: BUILD_FROM_SOURCE=false CONNECTOR_VERSION=${CONNECTOR_VERSION} ./run-demo.sh"
+    fi
+    info "Building connector ${SOURCE_VERSION} from source (mTLS feature requires 3.6.0-SNAPSHOT or later)..."
     ./mvnw clean package -DskipTests -DskipITs -Passembly -q
     PLUGIN_ARCHIVE=$(ls target/debezium-connector-cockroachdb-*-plugin.tar.gz 2>/dev/null | head -1)
     [ -z "$PLUGIN_ARCHIVE" ] && PLUGIN_ARCHIVE=$(ls target/debezium-connector-cockroachdb-*-plugin.zip 2>/dev/null | head -1)
