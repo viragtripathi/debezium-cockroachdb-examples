@@ -4,11 +4,11 @@ End-to-end CDC replication examples using [Debezium](https://debezium.io/) conne
 
 ## Demos
 
-| Demo                                    | Source             | Target             | Description                                                                                                                                                                              |
-|-----------------------------------------|--------------------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [crdb-to-crdb](crdb-to-crdb/)           | CockroachDB        | CockroachDB        | Full CDC replication using the Debezium CockroachDB source connector with enriched changefeeds. Includes multi-table, multi-schema, schema evolution, and incremental snapshot demos.    |
-| [crdb-to-crdb-mtls](crdb-to-crdb-mtls/) | CockroachDB (TLS)  | Kafka (mTLS)       | Fully-secure pipeline: pgjdbc `verify-full` to a secure CockroachDB cluster + `cockroachdb.changefeed.sink.tls.*` ([debezium/dbz#1974](https://issues.redhat.com/browse/DBZ-1974)) to push the changefeed over mutual TLS to Kafka. |
-| [pg-to-crdb](pg-to-crdb/)               | PostgreSQL         | CockroachDB        | PostgreSQL partitioned table migration using the Debezium PostgreSQL source connector with `ByLogicalTableRouter` SMT to merge partition topics.                                         |
+| Demo                                    | Source            | Target       | Description                                                                                                                                                                                                                         |
+|-----------------------------------------|-------------------|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [crdb-to-crdb](crdb-to-crdb/)           | CockroachDB       | CockroachDB  | Full CDC replication using the Debezium CockroachDB source connector with enriched changefeeds. Includes multi-table, multi-schema, schema evolution, and incremental snapshot demos.                                               |
+| [crdb-to-crdb-mtls](crdb-to-crdb-mtls/) | CockroachDB (TLS) | Kafka (mTLS) | Fully-secure pipeline: pgjdbc `verify-full` to a secure CockroachDB cluster + `cockroachdb.changefeed.sink.tls.*` ([debezium/dbz#1974](https://issues.redhat.com/browse/DBZ-1974)) to push the changefeed over mutual TLS to Kafka. |
+| [pg-to-crdb](pg-to-crdb/)               | PostgreSQL        | CockroachDB  | PostgreSQL partitioned table migration using the Debezium PostgreSQL source connector with `ByLogicalTableRouter` SMT to merge partition topics.                                                                                    |
 
 ## Quick Start
 
