@@ -142,6 +142,50 @@ The script is fully automated and runs through 22 steps:
 | `collection.name.format` | `orders_replica`                                      | Target table name                                     |
 | `hibernate.dialect`      | `PostgreSQLDialect`                                   | Required for CockroachDB (PostgreSQL wire-compatible) |
 
+## Reusing an Existing Changefeed
+
+By default the source connector creates and manages its own CockroachDB changefeed.
+Before it creates one, it checks whether a running changefeed already covers the
+configured tables. If a match is found, the connector skips creation and consumes
+the existing changefeed instead. This makes connector restarts idempotent, avoids
+duplicate changefeed jobs on the cluster, and lets you pre-provision a changefeed
+that the connector then attaches to.
+
+A changefeed is treated as a match only when its `SHOW CHANGEFEED JOBS` description
+contains both:
+
+- the fully-qualified name of each configured table, and
+- `topic_prefix=<prefix>.`, where `<prefix>` is `cockroachdb.changefeed.sink.topic.prefix`
+  (or `topic.prefix` when the sink topic prefix is not set, which is `crdb` in this demo).
+
+For the connector to consume it correctly, the changefeed must publish to the same
+topic names the connector subscribes to (`<prefix>.<database>.<schema>.<table>`).
+To get that layout and the event structure the connector expects, create the
+changefeed with options that match the connector configuration. The equivalent of
+what this demo's connector creates for `public.orders` is:
+
+```sql
+CREATE CHANGEFEED FOR TABLE public.orders
+  INTO 'kafka://kafka:9092?topic_prefix=crdb.'
+  WITH full_table_name,
+       format = 'json',
+       envelope = 'enriched',
+       enriched_properties = 'source,schema',
+       diff,
+       updated,
+       resolved = '10s';
+```
+
+This produces the topic `crdb.demodb.public.orders`, which is exactly what the
+connector subscribes to, so the connector detects the running job and skips
+creating its own. A changefeed created with a different `topic_prefix`, without
+`full_table_name`, or with a different envelope or set of enriched properties is
+not reused, even if it captures the same tables.
+
+For most setups, letting the connector own the changefeed is simpler. Reuse an
+existing changefeed only when you have a specific reason, such as preserving an
+existing cursor position or a custom partitioning scheme.
+
 ## Manual Interaction
 
 ### Interactive SQL on Source
