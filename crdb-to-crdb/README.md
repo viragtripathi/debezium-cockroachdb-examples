@@ -121,7 +121,6 @@ The script is fully automated and runs through 22 steps:
 | `topic.prefix`                        | `crdb`                                                  | Prefix for output Kafka topics                             |
 | `table.include.list`                  | `public.orders,public.customers,public.debezium_signal,inventory.warehouse_items` | Tables to capture (schema.table format) — includes a non-`public` schema to exercise [debezium/dbz#1973](https://issues.redhat.com/browse/DBZ-1973) |
 | `signal.data.collection`              | `demodb.public.debezium_signal`                         | Signaling table for incremental snapshots                  |
-| `cockroachdb.changefeed.envelope`     | `enriched`                                              | Uses CockroachDB enriched changefeed format                |
 | `cockroachdb.changefeed.include.diff` | `true`                                                  | Include before-image for updates                           |
 | `cockroachdb.changefeed.cursor`       | `now`                                                   | Start from current time (no historical backfill)           |
 | `heartbeat.interval.ms`               | `10000`                                                 | Emit heartbeat records every 10s using resolved timestamps |
@@ -178,11 +177,14 @@ CREATE CHANGEFEED FOR TABLE public.orders
 
 This produces the topic `crdb.demodb.public.orders`, which is exactly what the
 connector subscribes to, so the connector detects the running job and skips
-creating its own. A changefeed created with a different `topic_prefix`, without
-`full_table_name`, or with a different envelope is not reused, even if it
-captures the same tables. The `enriched_properties` value does not affect reuse:
-the connector reads the base enriched fields (`op`, `ts_ns`, `after`, and
-`before` when `diff` is set), so `source` alone is sufficient.
+creating its own. A changefeed created with a different `topic_prefix` or without
+`full_table_name` is not recognized as a match, and the connector creates its own.
+If a running changefeed does match the topic prefix and tables but uses an
+envelope other than `enriched`, the connector cannot consume it and fails to
+start with an error asking you to recreate it with `envelope='enriched'`. The
+`enriched_properties` value does not affect reuse: the connector reads the base
+enriched fields (`op`, `ts_ns`, `after`, and `before` when `diff` is set), so
+`source` alone is sufficient.
 
 For most setups, letting the connector own the changefeed is simpler. Reuse an
 existing changefeed only when you have a specific reason, such as preserving an

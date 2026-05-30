@@ -17,7 +17,6 @@
     "topic.prefix": "crdb",
     "table.include.list": "public.orders",
 
-    "cockroachdb.changefeed.envelope": "enriched",
     "cockroachdb.changefeed.enriched.properties": "source",
     "cockroachdb.changefeed.include.updated": true,
     "cockroachdb.changefeed.include.diff": true,
