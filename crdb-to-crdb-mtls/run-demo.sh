@@ -53,6 +53,22 @@ wait_for_url() {
     return 1
 }
 
+# Kafka Connect answers its REST port before it finishes registering connector
+# plugins, so waiting on the port alone races plugin discovery. Poll until the
+# named connector class actually appears in /connector-plugins.
+wait_for_plugin() {
+    local plugin="$1" max="$2"
+    for i in $(seq 1 "$max"); do
+        if curl -s http://localhost:8083/connector-plugins 2>/dev/null | grep -q "$plugin"; then
+            return 0
+        fi
+        echo -n "."
+        sleep 2
+    done
+    echo ""
+    return 1
+}
+
 wait_for_task_running() {
     local name="$1" max="$2"
     for i in $(seq 1 "$max"); do
@@ -195,6 +211,11 @@ header "STEP 7: Wait for Kafka Connect"
 if ! wait_for_url "http://localhost:8083/" 60; then
     echo ""
     fail "Kafka Connect did not start within 120s"
+fi
+# Wait for plugin discovery to finish, not just the REST port to open.
+if ! wait_for_plugin "CockroachDBConnector" 60; then
+    echo ""
+    fail "CockroachDB connector plugin did not register within 120s"
 fi
 echo ""
 success "Kafka Connect is ready"

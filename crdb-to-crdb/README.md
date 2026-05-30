@@ -170,7 +170,7 @@ CREATE CHANGEFEED FOR TABLE public.orders
   WITH full_table_name,
        format = 'json',
        envelope = 'enriched',
-       enriched_properties = 'source,schema',
+       enriched_properties = 'source',
        diff,
        updated,
        resolved = '10s';
@@ -179,8 +179,10 @@ CREATE CHANGEFEED FOR TABLE public.orders
 This produces the topic `crdb.demodb.public.orders`, which is exactly what the
 connector subscribes to, so the connector detects the running job and skips
 creating its own. A changefeed created with a different `topic_prefix`, without
-`full_table_name`, or with a different envelope or set of enriched properties is
-not reused, even if it captures the same tables.
+`full_table_name`, or with a different envelope is not reused, even if it
+captures the same tables. The `enriched_properties` value does not affect reuse:
+the connector reads the base enriched fields (`op`, `ts_ns`, `after`, and
+`before` when `diff` is set), so `source` alone is sufficient.
 
 For most setups, letting the connector own the changefeed is simpler. Reuse an
 existing changefeed only when you have a specific reason, such as preserving an
