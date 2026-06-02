@@ -121,6 +121,7 @@ The script is fully automated and runs through 22 steps:
 | `topic.prefix`                        | `crdb`                                                  | Prefix for output Kafka topics                             |
 | `table.include.list`                  | `public.orders,public.customers,public.debezium_signal,inventory.warehouse_items` | Tables to capture (schema.table format) — includes a non-`public` schema to exercise [debezium/dbz#1973](https://issues.redhat.com/browse/DBZ-1973) |
 | `signal.data.collection`              | `demodb.public.debezium_signal`                         | Signaling table for incremental snapshots                  |
+| `cockroachdb.changefeed.max.tables.per.changefeed` | `2`                                        | Split the 4 captured tables across 2 changefeeds to avoid per-table coupling ([debezium/dbz#2014](https://issues.redhat.com/browse/DBZ-2014)). `0` would put them all in one changefeed |
 | `cockroachdb.changefeed.include.diff` | `true`                                                  | Include before-image for updates                           |
 | `cockroachdb.changefeed.cursor`       | `now`                                                   | Start from current time (no historical backfill)           |
 | `heartbeat.interval.ms`               | `10000`                                                 | Emit heartbeat records every 10s using resolved timestamps |
@@ -140,6 +141,24 @@ The script is fully automated and runs through 22 steps:
 | `schema.evolution`       | `basic`                                               | Auto-create and alter target tables                   |
 | `collection.name.format` | `orders_replica`                                      | Target table name                                     |
 | `hibernate.dialect`      | `PostgreSQLDialect`                                   | Required for CockroachDB (PostgreSQL wire-compatible) |
+
+## Topic Naming and Changefeed Grouping
+
+**Intermediate topic names.** The connector names the CockroachDB-to-Kafka topics
+`<prefix><database>.<schema>.<table>`, where `<prefix>` is
+`cockroachdb.changefeed.sink.topic.prefix` used *verbatim* (or `<topic.prefix>.` when
+the sink topic prefix is not set, which is the case in this demo, giving `crdb.`). The
+prefix is used as-is, so include your own separator if you want one: `crdb.` yields
+`crdb.demodb.public.orders`, while `env-prod-` would yield `env-prod-demodb.public.orders`.
+Do not put `topic_name` or `topic_prefix` in `cockroachdb.changefeed.sink.uri`; the
+connector manages topic naming and rejects those at startup.
+
+**Changefeed grouping.** By default the connector puts all captured tables in a single
+changefeed. This demo sets `cockroachdb.changefeed.max.tables.per.changefeed=2`, so its 4
+tables are split across 2 changefeeds (see STEP 11b, which checks
+`SHOW CHANGEFEED JOBS` returns 2 running jobs). Splitting avoids the performance coupling
+CockroachDB warns about when one changefeed watches very many tables. Set it to `0` to keep
+everything in one changefeed.
 
 ## Reusing an Existing Changefeed
 

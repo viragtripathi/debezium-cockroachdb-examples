@@ -237,6 +237,19 @@ success "3 rows inserted after changefeed creation"
 info "Waiting 15s for events to flow through source connector..."
 sleep 15
 
+# ── Step 11b: Changefeed splitting demo (debezium/dbz#2014) ──────────────────
+header "STEP 11b: Changefeed Splitting (debezium/dbz#2014)"
+info "connector-config.json sets cockroachdb.changefeed.max.tables.per.changefeed=2,"
+info "so the 4 captured tables are split across 2 changefeeds to avoid per-table coupling."
+CHANGEFEED_COUNT=$(docker exec demo-cockroachdb cockroach sql --insecure -d demodb \
+    --format=csv -e "SELECT count(*) FROM [SHOW CHANGEFEED JOBS] WHERE status = 'running'" 2>/dev/null | tail -1 | tr -d '[:space:]')
+info "Running changefeed jobs: ${CHANGEFEED_COUNT}"
+if [ "$CHANGEFEED_COUNT" = "2" ]; then
+    success "Tables split into 2 changefeeds (max 2 tables each) -- coupling avoided"
+else
+    warn "Expected 2 running changefeeds, found ${CHANGEFEED_COUNT} (set max.tables.per.changefeed=0 for a single changefeed)"
+fi
+
 # ── Step 12: Deploy JDBC sink connector ────────────────────────────────────
 header "STEP 12: Deploy Debezium JDBC Sink Connector (target CRDB)"
 RESPONSE=$(curl -s -o /tmp/demo-sink-response.json -w "%{http_code}" -X POST \
