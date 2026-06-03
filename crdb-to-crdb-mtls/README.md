@@ -33,20 +33,21 @@ must succeed for events to flow.
    │   base64-inlines into the    │         └──────────────┬───────────────┘
    │   CockroachDB sink URI       │                        │
    └──────────────┬───────────────┘                        │
-                  │ reads intermediate topic from          │
-                  │ kafka:9092 (PLAINTEXT — same broker,   │
-                  │ same data, different listener)         │
+                  │ consumes the intermediate topic over   │
+                  │ mTLS from kafka:9093 (same certs)      │
                   ▼                                        │
    Kafka topic: crdb.public.orders    ◀────────────────────┘
    (Debezium output, JSON)              CRDB writes to: crdb.demodb.public.orders
 ```
 
-Both Kafka listeners point at the same broker, so the in-network Kafka Connect
-worker uses the PLAINTEXT listener for its own bookkeeping topics and for
-reading the intermediate changefeed topic, while CockroachDB pushes the
-changefeed over mTLS to the SSL listener. That matches the most common
-production topology, where Connect runs on a trusted network alongside Kafka
-and only external CockroachDB clusters speak mTLS to the broker.
+This demo exercises mTLS on both legs: CockroachDB pushes the changefeed to the
+SSL listener using the inlined certs, and the connector's own consumer reads
+those intermediate topics back over the same SSL listener. The consumer's TLS is
+derived automatically from `cockroachdb.changefeed.sink.tls.*` (the same PEM
+files used for the push), so no separate consumer keystore configuration is
+needed. The Kafka Connect worker still uses the PLAINTEXT listener for its own
+bookkeeping topics, which is a separate concern from the connector's changefeed
+consumer.
 
 ## Prerequisites
 
@@ -134,7 +135,8 @@ controlled by two disjoint sets of properties:
 "cockroachdb.changefeed.sink.tls.ca.cert.file":     "/etc/kafka-tls/ca.crt",
 "cockroachdb.changefeed.sink.tls.client.cert.file": "/etc/kafka-tls/client.crt",
 "cockroachdb.changefeed.sink.tls.client.key.file":  "/etc/kafka-tls/client.key",
-"cockroachdb.changefeed.kafka.bootstrap.servers":   "kafka:9092"
+"cockroachdb.changefeed.kafka.bootstrap.servers":   "kafka:9093",
+"cockroachdb.changefeed.kafka.consumer.override.ssl.endpoint.identification.algorithm": ""
 ```
 
 The connector resolves each `cockroachdb.changefeed.sink.tls.*.file` at task
@@ -143,10 +145,17 @@ start, base64-encodes the contents, and appends them to the sink URI as
 CockroachDB's [Kafka sink documentation](https://www.cockroachlabs.com/docs/stable/changefeed-sinks#kafka)
 for the inline query parameter format.
 
-The `cockroachdb.changefeed.kafka.bootstrap.servers` override points the
-connector's own consumer at the PLAINTEXT listener on the same broker —
-otherwise the consumer would derive its bootstrap from the sink URI
-(`kafka:9093`) and try PLAINTEXT against the SSL listener.
+The connector's own consumer reads the intermediate topics back over the same
+mTLS listener (`kafka:9093`). Its TLS is derived automatically from the
+`cockroachdb.changefeed.sink.tls.*` files above (CA becomes the consumer's PEM
+truststore, client cert and key become its PEM keystore), so no separate
+consumer keystore configuration is required. The one extra setting here,
+`cockroachdb.changefeed.kafka.consumer.override.ssl.endpoint.identification.algorithm=""`,
+disables hostname verification because the demo's broker certificate is
+self-signed; omit it in production where the broker certificate matches its
+hostname. Any `cockroachdb.changefeed.kafka.consumer.override.*` property is
+passed through to the consumer, which is also how you would configure SASL or a
+JKS keystore.
 
 ## What the Demo Proves
 

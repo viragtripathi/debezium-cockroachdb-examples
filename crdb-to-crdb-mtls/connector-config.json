@@ -29,7 +29,8 @@
     "cockroachdb.changefeed.sink.tls.ca.cert.file": "/etc/kafka-tls/ca.crt",
     "cockroachdb.changefeed.sink.tls.client.cert.file": "/etc/kafka-tls/client.crt",
     "cockroachdb.changefeed.sink.tls.client.key.file": "/etc/kafka-tls/client.key",
-    "cockroachdb.changefeed.kafka.bootstrap.servers": "kafka:9092",
+    "cockroachdb.changefeed.kafka.bootstrap.servers": "kafka:9093",
+    "cockroachdb.changefeed.kafka.consumer.override.ssl.endpoint.identification.algorithm": "",
 
     "cockroachdb.changefeed.batch.size": 1000,
     "cockroachdb.changefeed.poll.interval.ms": 100,
