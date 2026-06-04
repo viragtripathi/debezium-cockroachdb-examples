@@ -1,0 +1,7 @@
+CREATE DATABASE IF NOT EXISTS targetdb;
+USE targetdb;
+CREATE TABLE IF NOT EXISTS orders (
+    id INT PRIMARY KEY,
+    name STRING NOT NULL,
+    amount DECIMAL(10,2)
+);

@@ -1,0 +1,37 @@
+services:
+  cockroachdb:
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    hostname: cockroachdb
+    container_name: embedded-cockroachdb
+    command: start-single-node --insecure
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "cockroach", "sql", "--insecure", "--host=localhost:26257", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  cockroachdb-target:
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    hostname: cockroachdb-target
+    container_name: embedded-cockroachdb-target
+    command: start-single-node --insecure
+    ports:
+      - "26258:26257"
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "cockroach", "sql", "--insecure", "--host=localhost:26257", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+# Note: there is deliberately no Kafka, Zookeeper, or Kafka Connect here. The Debezium embedded
+# engine runs the connector in-process, and the sinkless changefeed streams over the SQL connection.
+
+networks:
+  default:
+    name: debezium-embedded-demo
