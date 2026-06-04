@@ -1,0 +1,22 @@
+{
+  "name": "cockroachdb-jdbc-sink",
+  "config": {
+    "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "crdb.public.orders,crdb.public.customers",
+    "connection.url": "jdbc:postgresql://cockroachdb-target:26257/targetdb?sslmode=disable",
+    "connection.username": "root",
+    "connection.password": "unused",
+    "insert.mode": "upsert",
+    "delete.enabled": "true",
+    "primary.key.mode": "record_key",
+    "primary.key.fields": "id",
+    "schema.evolution": "basic",
+    "collection.name.format": "${topic}",
+    "hibernate.dialect": "org.hibernate.dialect.PostgreSQLDialect",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "true",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "true"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "cockroachdb-sinkless-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.cockroachdb.CockroachDBConnector",
+    "database.hostname": "cockroachdb",
+    "database.port": "26257",
+    "database.user": "demo",
+    "database.password": "",
+    "database.dbname": "demodb",
+    "database.server.name": "cockroachdb",
+    "topic.prefix": "crdb",
+    "table.include.list": "public.orders,public.customers,public.debezium_signal,inventory.warehouse_items",
+    "signal.data.collection": "demodb.public.debezium_signal",
+    "cockroachdb.changefeed.enriched.properties": "source",
+    "cockroachdb.changefeed.include.updated": true,
+    "cockroachdb.changefeed.include.diff": true,
+    "cockroachdb.changefeed.resolved.interval": "10s",
+    "heartbeat.interval.ms": 10000,
+    "snapshot.mode": "initial",
+    "cockroachdb.changefeed.sink.type": "sinkless",
+    "cockroachdb.changefeed.batch.size": 1000,
+    "cockroachdb.changefeed.poll.interval.ms": 100,
+    "connection.timeout.ms": 30000,
+    "connection.retry.delay.ms": 1000,
+    "connection.max.retries": 3,
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "true",
+    "value.converter.schemas.enable": "true"
+  }
+}

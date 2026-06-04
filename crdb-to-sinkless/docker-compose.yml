@@ -1,0 +1,91 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:${CONFLUENT_VERSION:-7.4.0}
+    hostname: zookeeper
+    container_name: demo-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:${CONFLUENT_VERSION:-7.4.0}
+    hostname: kafka
+    container_name: demo-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:29092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,HOST://0.0.0.0:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+  cockroachdb:
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    hostname: cockroachdb
+    container_name: demo-cockroachdb
+    command: start-single-node --insecure
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "cockroach", "sql", "--insecure", "--host=localhost:26257", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  cockroachdb-target:
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    hostname: cockroachdb-target
+    container_name: demo-cockroachdb-target
+    command: start-single-node --insecure
+    ports:
+      - "26258:26257"
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "cockroach", "sql", "--insecure", "--host=localhost:26257", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  connect:
+    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.5.0.Final}
+    hostname: connect
+    container_name: demo-connect
+    depends_on:
+      - cockroachdb
+      - cockroachdb-target
+      - kafka
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: demo-connect-cluster
+      CONFIG_STORAGE_TOPIC: demo-connect-configs
+      OFFSET_STORAGE_TOPIC: demo-connect-offsets
+      STATUS_STORAGE_TOPIC: demo-connect-status
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      LOG_LEVEL: DEBUG
+      CONNECT_LOG4J_LOGGER_IO_DEBEZIUM_CONNECTOR_COCKROACHDB: DEBUG
+      CONNECT_LOG4J_LOGGER_IO_DEBEZIUM_CONNECTOR_JDBC: DEBUG
+      CONNECT_LOG4J_LOGGER_ORG_APACHE_KAFKA: WARN
+    volumes:
+      - ./connect-plugins:/kafka/connect/debezium-connector-cockroachdb
+
+networks:
+  default:
+    name: debezium-demo
