@@ -42,7 +42,7 @@ services:
       - ./certs/kafka:/etc/kafka/secrets:ro
 
   cockroachdb:
-    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.11}
     hostname: cockroachdb
     container_name: mtls-demo-cockroachdb
     command: start-single-node --certs-dir=/cockroach/cockroach-certs --advertise-addr=cockroachdb

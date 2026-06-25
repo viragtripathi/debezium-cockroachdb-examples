@@ -74,7 +74,7 @@ CONNECTOR_VERSION=<released-version> ./run-demo.sh   # resolves from Maven, no c
 |-----------------------|------------------|------------------------------------------------------------------------|
 | `CONNECTOR_VERSION`   | `3.6.0-SNAPSHOT` | Connector artifact version to resolve from Maven                       |
 | `BUILD_FROM_SOURCE`   | `auto`           | `auto` = Maven first, source fallback; `true` = always build from clone; `false` = Maven only (fail if absent) |
-| `COCKROACHDB_VERSION` | `v25.4.10`       | CockroachDB image tag                                                  |
+| `COCKROACHDB_VERSION` | `v25.4.11`       | CockroachDB image tag                                                  |
 | `MVN`                 | `mvn`            | Maven command to use                                                   |
 
 The script starts the two CockroachDB clusters, runs the embedded replicator, performs live DML on

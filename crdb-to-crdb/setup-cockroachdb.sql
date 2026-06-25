@@ -24,7 +24,16 @@ CREATE TABLE IF NOT EXISTS orders (
     is_express BOOLEAN DEFAULT false,
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT current_timestamp(),
-    updated_at TIMESTAMPTZ DEFAULT current_timestamp()
+    updated_at TIMESTAMPTZ DEFAULT current_timestamp(),
+    -- Temporal type coverage: exercises every Debezium time logical type and the literal default
+    -- path end to end (TIMESTAMP -> MicroTimestamp, TIMESTAMPTZ -> ZonedTimestamp,
+    -- TIME -> MicroTime, TIMETZ -> ZonedTime, DATE -> Date). Literal defaults are used so each
+    -- value replicates all the way to the target table.
+    archive_after TIMESTAMP DEFAULT '2030-01-01 00:00:00',
+    promo_at TIMESTAMPTZ DEFAULT '2030-01-01 00:00:00+00',
+    pickup_time TIME DEFAULT '09:00:00',
+    pickup_time_tz TIMETZ DEFAULT '09:00:00+00',
+    ship_by_date DATE DEFAULT '2030-01-01'
 );
 
 -- Create customers table (for multi-table changefeed demo)

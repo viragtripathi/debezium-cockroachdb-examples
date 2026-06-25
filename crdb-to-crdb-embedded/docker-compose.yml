@@ -1,6 +1,6 @@
 services:
   cockroachdb:
-    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.11}
     hostname: cockroachdb
     container_name: embedded-cockroachdb
     command: start-single-node --insecure
@@ -15,7 +15,7 @@ services:
       start_period: 10s
 
   cockroachdb-target:
-    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.11}
     hostname: cockroachdb-target
     container_name: embedded-cockroachdb-target
     command: start-single-node --insecure

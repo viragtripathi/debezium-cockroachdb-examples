@@ -79,7 +79,7 @@ BUILD_FROM_SOURCE=false CONNECTOR_VERSION=3.6.0.Final ./run-demo.sh
 | Variable              | Default          | Description                                                     |
 |-----------------------|------------------|-----------------------------------------------------------------|
 | `CONNECTOR_VERSION`   | `3.6.0-SNAPSHOT` | Connector plugin version                                        |
-| `COCKROACHDB_VERSION` | `v25.4.10`       | CockroachDB image tag (and the image used for `cockroach cert`) |
+| `COCKROACHDB_VERSION` | `v25.4.11`       | CockroachDB image tag (and the image used for `cockroach cert`) |
 | `DEBEZIUM_VERSION`    | `3.5.0.Final`    | Debezium Connect image tag                                      |
 | `CONFLUENT_VERSION`   | `7.4.0`          | Confluent Platform (Kafka/ZK) image tag                         |
 | `BUILD_FROM_SOURCE`   | `true`           | Build connector from local source instead of downloading        |

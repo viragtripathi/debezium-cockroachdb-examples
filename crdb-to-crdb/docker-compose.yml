@@ -30,7 +30,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
   cockroachdb:
-    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.11}
     hostname: cockroachdb
     container_name: demo-cockroachdb
     command: start-single-node --insecure
@@ -45,7 +45,7 @@ services:
       start_period: 10s
 
   cockroachdb-target:
-    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.10}
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.11}
     hostname: cockroachdb-target
     container_name: demo-cockroachdb-target
     command: start-single-node --insecure
