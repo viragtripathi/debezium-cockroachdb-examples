@@ -97,6 +97,7 @@ The script is fully automated and runs through 22 steps:
 | Schema auto-creation  | Target table created automatically by JDBC sink (`schema.evolution=basic`) |
 | Upsert mode           | Idempotent writes using `INSERT ... ON CONFLICT ... DO UPDATE`             |
 | Heartbeat support     | Resolved timestamps advance offsets and emit heartbeat records             |
+| Restart resume        | A source connector restart resumes from its persisted position without replaying the backlog |
 | Debug logging         | Full event pipeline visible in connector logs                              |
 | Data types            | UUID, STRING, DECIMAL, BOOLEAN, JSONB, TIMESTAMPTZ, arrays                 |
 

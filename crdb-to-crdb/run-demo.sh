@@ -520,6 +520,30 @@ TGT_CUST=$(docker exec demo-cockroachdb-target cockroach sql --insecure -d targe
 echo "  Source orders:    $SRC_ORD rows   |  Target orders:    $TGT_ORD rows"
 echo "  Source customers: $SRC_CUST rows   |  Target customers: $TGT_CUST rows"
 
+# ── Step 21c: Restart resume (debezium/dbz#2154) ─────────────────────────────
+header "STEP 21c: Restart Resume (debezium/dbz#2154 -- no replay on restart)"
+
+get_end_offset() {
+    docker exec demo-kafka kafka-run-class kafka.tools.GetOffsetShell \
+        --broker-list localhost:9092 --topic "$1" 2>/dev/null | awk -F: '{s+=$3} END{print s+0}'
+}
+
+OUTPUT_TOPIC="crdb.public.orders"
+RESUME_BEFORE=$(get_end_offset "$OUTPUT_TOPIC")
+info "Output topic $OUTPUT_TOPIC end offset before restart: $RESUME_BEFORE"
+info "Restarting the source connector with no new data..."
+curl -s -X POST "http://localhost:8083/connectors/cockroachdb-demo-connector/restart?includeTasks=true&onlyFailed=false" -o /dev/null
+sleep 45
+RESUME_AFTER=$(get_end_offset "$OUTPUT_TOPIC")
+info "Output topic $OUTPUT_TOPIC end offset after restart:  $RESUME_AFTER"
+# With no new data, a connector that resumes from its persisted offset does not re-emit the backlog,
+# so the output topic offset is unchanged. The small slack tolerates an occasional heartbeat record.
+if [ "$RESUME_AFTER" -le "$((RESUME_BEFORE + 2))" ]; then
+    success "Restart did not replay: output offset stayed at ~$RESUME_BEFORE (connector resumed from its persisted position)"
+else
+    warn "Output topic grew from $RESUME_BEFORE to $RESUME_AFTER after a restart with no new data -- possible replay"
+fi
+
 # ── Step 22: Summary ───────────────────────────────────────────────────────
 header "DEMO COMPLETE"
 echo ""
