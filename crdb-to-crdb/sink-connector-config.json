@@ -1,5 +1,5 @@
 {
-  "name": "cockroachdb-jdbc-sink",
+  "name": "debezium-jdbc-sink",
   "config": {
     "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
     "tasks.max": "1",

@@ -7,6 +7,14 @@ CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.5.0.Final}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 
+# Optional Prometheus + Grafana observability overlay (observability/). When OBSERVABILITY=true the
+# demo also starts the JMX-exporter-enabled Connect image, Prometheus, and Grafana.
+OBSERVABILITY="${OBSERVABILITY:-false}"
+COMPOSE_FILES="-f docker-compose.yml"
+if [ "$OBSERVABILITY" = "true" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f observability/docker-compose.observability.yml"
+fi
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -123,9 +131,12 @@ fi
 
 # ── Step 3: Start infrastructure ────────────────────────────────────────────
 header "STEP 3: Start Docker Compose (Source CRDB + Target CRDB + Kafka + Connect)"
-docker compose down -v --remove-orphans 2>/dev/null || true
-docker compose up -d
+docker compose $COMPOSE_FILES down -v --remove-orphans 2>/dev/null || true
+docker compose $COMPOSE_FILES up -d --build
 success "Containers starting..."
+if [ "$OBSERVABILITY" = "true" ]; then
+    success "Observability overlay enabled (Prometheus + Grafana + JMX exporter)"
+fi
 
 # ── Step 4: Wait for Source CockroachDB ─────────────────────────────────────
 header "STEP 4: Wait for Source CockroachDB"
@@ -219,7 +230,7 @@ else
 fi
 
 info "Waiting for source connector task to start..."
-if ! wait_for_task_running "cockroachdb-demo-connector" 30; then
+if ! wait_for_task_running "debezium-cockroachdb-source" 30; then
     fail "Source connector task did not start"
 fi
 success "Source connector task is RUNNING"
@@ -267,7 +278,7 @@ else
 fi
 
 info "Waiting for sink connector task to start..."
-if ! wait_for_task_running "cockroachdb-jdbc-sink" 30; then
+if ! wait_for_task_running "debezium-jdbc-sink" 30; then
     warn "Sink connector task did not reach RUNNING state -- check logs below"
 fi
 
@@ -532,7 +543,7 @@ OUTPUT_TOPIC="crdb.public.orders"
 RESUME_BEFORE=$(get_end_offset "$OUTPUT_TOPIC")
 info "Output topic $OUTPUT_TOPIC end offset before restart: $RESUME_BEFORE"
 info "Restarting the source connector with no new data..."
-curl -s -X POST "http://localhost:8083/connectors/cockroachdb-demo-connector/restart?includeTasks=true&onlyFailed=false" -o /dev/null
+curl -s -X POST "http://localhost:8083/connectors/debezium-cockroachdb-source/restart?includeTasks=true&onlyFailed=false" -o /dev/null
 sleep 45
 RESUME_AFTER=$(get_end_offset "$OUTPUT_TOPIC")
 info "Output topic $OUTPUT_TOPIC end offset after restart:  $RESUME_AFTER"
@@ -563,9 +574,19 @@ success "Source CRDB       : localhost:26257  (UI: http://localhost:8080)"
 success "Target CRDB       : localhost:26258  (UI: http://localhost:8081)"
 success "Kafka             : localhost:29092"
 success "Kafka Connect     : http://localhost:8083"
-success "Source connector  : http://localhost:8083/connectors/cockroachdb-demo-connector/status"
-success "Sink connector    : http://localhost:8083/connectors/cockroachdb-jdbc-sink/status"
+success "Source connector  : http://localhost:8083/connectors/debezium-cockroachdb-source/status"
+success "Sink connector    : http://localhost:8083/connectors/debezium-jdbc-sink/status"
+if [ "$OBSERVABILITY" = "true" ]; then
+    success "Grafana           : http://localhost:3000  (admin/admin) -> dashboard 'Debezium CockroachDB'"
+    success "Prometheus        : http://localhost:9090"
+    success "Connector metrics : http://localhost:9404/metrics  (debezium_metrics_*)"
+fi
 echo ""
+if [ "$OBSERVABILITY" = "true" ]; then
+    info "Drive continuous change events for the dashboard:"
+    echo "  ./observability/continuous-writer.sh"
+    echo ""
+fi
 info "Interactive SQL on source:"
 echo "  docker exec -it demo-cockroachdb cockroach sql --insecure -d demodb"
 echo ""
@@ -580,4 +601,4 @@ info "View connector debug logs:"
 echo "  docker compose logs -f connect 2>&1 | grep -E 'DEBUG|INFO' | grep -iE 'cockroachdb|jdbc'"
 echo ""
 info "To stop the demo:"
-echo "  cd $(pwd) && docker compose down -v"
+echo "  cd $(pwd) && docker compose $COMPOSE_FILES down -v"

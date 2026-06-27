@@ -1,0 +1,162 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "schemaVersion": 39,
+  "tags": ["debezium", "cockroachdb"],
+  "title": "Debezium CockroachDB",
+  "uid": "debezium-cockroachdb",
+  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "5s",
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "type": "text",
+      "title": "Data flow",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 6 },
+      "options": {
+        "mode": "markdown",
+        "content": "**CockroachDB (source)**  ─ poll →  **Debezium source connector**  ─ write →  **Kafka topics**  ─ read →  **Debezium JDBC sink**  ─ send →  **CockroachDB (target)**\n\nThe four stat panels below show records/sec at each hop, and the chart overlays all four over time. When data flows, every hop ticks up together."
+      }
+    },
+    {
+      "type": "stat",
+      "title": "1. CRDB -> connector (poll/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "ops", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "graphMode": "area", "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(kafka_connect_source_record_poll[1m]))" } ]
+    },
+    {
+      "type": "stat",
+      "title": "2. connector -> Kafka (write/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "ops", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "graphMode": "area", "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(kafka_connect_source_record_write[1m]))" } ]
+    },
+    {
+      "type": "stat",
+      "title": "3. Kafka -> JDBC sink (read/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "ops", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "orange" } }, "overrides": [] },
+      "options": { "graphMode": "area", "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(kafka_connect_sink_record_read[1m]))" } ]
+    },
+    {
+      "type": "stat",
+      "title": "4. JDBC sink -> CRDB target (send/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "ops", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "graphMode": "area", "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(kafka_connect_sink_record_send[1m]))" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Data flow over time (records/s at each hop)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 15 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(kafka_connect_source_record_poll[1m]))", "legendFormat": "1. CRDB -> connector (poll)" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(kafka_connect_source_record_write[1m]))", "legendFormat": "2. connector -> Kafka (write)" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(kafka_connect_sink_record_read[1m]))", "legendFormat": "3. Kafka -> sink (read)" },
+        { "refId": "D", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(kafka_connect_sink_record_send[1m]))", "legendFormat": "4. sink -> CRDB target (send)" }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Connectors",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "showHeader": true },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "kafka_connect_connector_version", "format": "table", "instant": true },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "kafka_connect_connector_type", "format": "table", "instant": true },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "kafka_connect_connector_status", "format": "table", "instant": true },
+        { "refId": "D", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "kafka_connect_connector_class", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "connector", "mode": "outer" } },
+        { "id": "filterFieldsByName", "options": { "include": { "pattern": "^(connector|version|type|status|class)$" } } },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": { "connector": "Connector", "version": "Version", "type": "Type", "status": "Status", "class": "Class" },
+            "indexByName": { "connector": 0, "version": 1, "type": 2, "status": 3, "class": 4 }
+          }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Snapshot running",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 22 },
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "no" }, "1": { "text": "yes" } } } ] }, "overrides": [] },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "debezium_metrics_SnapshotRunning{context=\"snapshot\"}" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Snapshot completed (this session)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 22 },
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "no (resumed/streaming)" }, "1": { "text": "yes" } } } ] }, "overrides": [] },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "debezium_metrics_SnapshotCompleted{context=\"snapshot\"}" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Total events seen",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 22 },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "debezium_metrics_TotalNumberOfEventsSeen{context=\"streaming\"}" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Milliseconds behind source",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "debezium_metrics_MilliSecondsBehindSource{context=\"streaming\"}" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Lag (MilliSecondsBehindSource)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "debezium_metrics_MilliSecondsBehindSource{context=\"streaming\"}" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Event throughput (events/s seen)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(debezium_metrics_TotalNumberOfEventsSeen{context=\"streaming\"}[1m])" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Change-event queue remaining capacity",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "debezium_metrics_QueueRemainingCapacity{context=\"streaming\"}" } ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Total number of create/update/delete events",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "debezium_metrics_TotalNumberOfCreateEventsSeen{context=\"streaming\"}", "legendFormat": "create" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "debezium_metrics_TotalNumberOfUpdateEventsSeen{context=\"streaming\"}", "legendFormat": "update" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "debezium_metrics_TotalNumberOfDeleteEventsSeen{context=\"streaming\"}", "legendFormat": "delete" }
+      ]
+    }
+  ]
+}

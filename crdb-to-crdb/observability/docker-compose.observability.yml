@@ -1,0 +1,49 @@
+# Observability overlay for the crdb-to-crdb demo. Mirrors the canonical Debezium monitoring example
+# (debezium-examples/monitoring): the Prometheus JMX exporter runs as a java agent inside the connect
+# container (no separate exporter sidecar), Prometheus scrapes it, and Grafana visualizes it.
+#
+# Run together with the base demo compose:
+#   docker compose -f docker-compose.yml -f observability/docker-compose.observability.yml up -d
+#
+# Then open Grafana at http://localhost:3000 (admin/admin) -> "Debezium CockroachDB" dashboard.
+services:
+  # Rebuild the base demo's connect service from an image that bakes in the JMX exporter agent, and
+  # start the agent via KAFKA_OPTS so the connector's MBeans are exposed on :8080/metrics. The base
+  # service's plugin volume, converters, and bootstrap config are inherited from docker-compose.yml.
+  connect:
+    build:
+      context: observability
+      dockerfile: Dockerfile.connect
+      args:
+        DEBEZIUM_VERSION: ${DEBEZIUM_VERSION:-3.5.0.Final}
+        JMX_AGENT_VERSION: "1.0.1"
+    environment:
+      KAFKA_OPTS: -javaagent:/kafka/etc/jmx_prometheus_javaagent.jar=8080:/kafka/etc/config.yml
+      JMXPORT: 1976
+    ports:
+      - "9404:8080"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: demo-prometheus
+    depends_on:
+      - connect
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: demo-grafana
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"

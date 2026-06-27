@@ -1,0 +1,13 @@
+# Debezium Connect image with the Prometheus JMX exporter java agent baked in, mirroring the
+# canonical Debezium monitoring example (debezium-examples/monitoring/debezium-jmx-exporter). The
+# agent is started via KAFKA_OPTS in the compose overlay and serves the connector's JMX metrics on
+# an HTTP endpoint that Prometheus scrapes directly.
+ARG DEBEZIUM_VERSION=3.5.0.Final
+FROM quay.io/debezium/connect:${DEBEZIUM_VERSION}
+
+ARG JMX_AGENT_VERSION=1.0.1
+RUN mkdir -p /kafka/etc && cd /kafka/etc && \
+        curl -so jmx_prometheus_javaagent.jar \
+        https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_AGENT_VERSION}/jmx_prometheus_javaagent-${JMX_AGENT_VERSION}.jar
+
+COPY config.yml /kafka/etc/config.yml

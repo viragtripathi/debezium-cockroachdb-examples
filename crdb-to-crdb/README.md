@@ -57,6 +57,7 @@ CONNECTOR_VERSION=3.5.0.Final COCKROACHDB_VERSION=v25.4.11 DEBEZIUM_VERSION=3.5.
 | `CONFLUENT_VERSION`   | `7.4.0`       | Confluent Platform (Kafka/ZK) image tag                      |
 | `BUILD_FROM_SOURCE`   | `false`       | Build connector from local source instead of downloading     |
 | `SKIP_BUILD`          | `false`       | Skip download/build, use existing jars in `connect-plugins/` |
+| `OBSERVABILITY`       | `false`       | Also start the Prometheus + Grafana metrics overlay (`observability/`) |
 
 The script is fully automated and runs through 22 steps:
 
@@ -261,10 +262,10 @@ docker compose logs -f connect 2>&1 | grep -E 'DEBUG|INFO' | grep -i jdbc
 
 ```bash
 # Source connector
-curl -s http://localhost:8083/connectors/cockroachdb-demo-connector/status | python3 -m json.tool
+curl -s http://localhost:8083/connectors/debezium-cockroachdb-source/status | python3 -m json.tool
 
 # Sink connector
-curl -s http://localhost:8083/connectors/cockroachdb-jdbc-sink/status | python3 -m json.tool
+curl -s http://localhost:8083/connectors/debezium-jdbc-sink/status | python3 -m json.tool
 ```
 
 ## Source Database Schema
@@ -303,6 +304,26 @@ CREATE TABLE orders (
 | `demo-operations.sql`           | DML operations (UPDATE, DELETE) run during the demo                        |
 | `demo-schema-evolution.sql`     | Schema evolution demo: ALTER TABLE ADD COLUMN without restart              |
 | `demo-incremental-snapshot.sql` | Incremental snapshot demo: signal-based re-snapshot via signaling table    |
+| `observability/`                | Prometheus + Grafana metrics overlay (see `observability/README.md`)       |
+
+## Observability (Prometheus + Grafana)
+
+The `observability/` overlay exposes the connector's JMX metrics through the Prometheus JMX exporter
+java agent, scrapes them with Prometheus, and visualizes them in Grafana. Start it together with the
+demo:
+
+```bash
+OBSERVABILITY=true ./run-demo.sh
+```
+
+- Grafana: http://localhost:3000 (admin / admin) -> dashboard "Debezium CockroachDB"
+- Prometheus: http://localhost:9090
+- Connector metrics: http://localhost:9404/metrics (`debezium_metrics_*`)
+
+The dashboard shows a Connectors table (name, version, type, status), a live data-flow view
+(records/sec at each hop: CRDB -> connector -> Kafka -> JDBC sink -> CRDB target), snapshot state,
+lag, throughput, and create/update/delete counts. To drive sustained traffic, run
+`./observability/continuous-writer.sh`. See `observability/README.md` for details.
 
 ## Known Limitations
 

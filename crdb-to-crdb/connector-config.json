@@ -1,5 +1,5 @@
 {
-  "name": "cockroachdb-demo-connector",
+  "name": "debezium-cockroachdb-source",
   "config": {
     "connector.class": "io.debezium.connector.cockroachdb.CockroachDBConnector",
     "database.hostname": "cockroachdb",
