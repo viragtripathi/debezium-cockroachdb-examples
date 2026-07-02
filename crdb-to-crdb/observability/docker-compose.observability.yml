@@ -15,7 +15,7 @@ services:
       context: observability
       dockerfile: Dockerfile.connect
       args:
-        DEBEZIUM_VERSION: ${DEBEZIUM_VERSION:-3.5.0.Final}
+        DEBEZIUM_VERSION: ${DEBEZIUM_VERSION:-3.6.0.Final}
         JMX_AGENT_VERSION: "1.0.1"
     environment:
       KAFKA_OPTS: -javaagent:/kafka/etc/jmx_prometheus_javaagent.jar=8080:/kafka/etc/config.yml

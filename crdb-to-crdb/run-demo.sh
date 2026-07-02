@@ -3,7 +3,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECTOR_PROJECT="${SCRIPT_DIR}/../../debezium-connector-cockroachdb"
-CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.5.0.Final}"
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.6.0.Final}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 
@@ -122,7 +122,7 @@ else
             warn "Download failed. The version ${CONNECTOR_VERSION} may not be published yet."
             info "Options:"
             info "  1. Build from source:  BUILD_FROM_SOURCE=true ./run-demo.sh"
-            info "  2. Specify a version:  CONNECTOR_VERSION=3.5.0.Final ./run-demo.sh"
+            info "  2. Specify a version:  CONNECTOR_VERSION=3.6.0.Final ./run-demo.sh"
             info "  3. Place jars manually in connect-plugins/debezium-connector-cockroachdb/ and run with SKIP_BUILD=true"
             fail "Cannot proceed without connector plugin"
         fi

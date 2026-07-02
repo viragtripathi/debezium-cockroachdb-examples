@@ -67,7 +67,7 @@ services:
       start_period: 15s
 
   connect:
-    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.5.0.Final}
+    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.6.0.Final}
     hostname: connect
     container_name: mtls-demo-connect
     depends_on:

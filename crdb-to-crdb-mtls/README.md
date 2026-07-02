@@ -56,8 +56,8 @@ consumer.
 - `openssl`
 - `docker` (also used to run `cockroach cert` in a one-shot container — no local CockroachDB install required)
 
-To build the connector from source (required while `3.6.0-SNAPSHOT` is the only
-version that ships the `cockroachdb.changefeed.sink.tls.*` properties):
+To build the connector from source (optional; the mTLS
+`cockroachdb.changefeed.sink.tls.*` properties ship in `3.6.0.Final` and later):
 
 - JDK 21+
 - Maven 3.9.8+
@@ -65,24 +65,26 @@ version that ships the `cockroachdb.changefeed.sink.tls.*` properties):
 
 ## Quick Start
 
+By default the script downloads the released connector plugin (`3.6.0.Final`) from
+Maven Central -- no build required:
+
 ```bash
 ./run-demo.sh
 ```
 
-The default is `BUILD_FROM_SOURCE=true` because the mTLS feature requires
-`3.6.0-SNAPSHOT` or later. Once `3.6.0.Final` is published:
+To build from source instead:
 
 ```bash
-BUILD_FROM_SOURCE=false CONNECTOR_VERSION=3.6.0.Final ./run-demo.sh
+BUILD_FROM_SOURCE=true ./run-demo.sh
 ```
 
 | Variable              | Default          | Description                                                     |
 |-----------------------|------------------|-----------------------------------------------------------------|
-| `CONNECTOR_VERSION`   | `3.6.0-SNAPSHOT` | Connector plugin version                                        |
+| `CONNECTOR_VERSION`   | `3.6.0.Final`    | Connector plugin version to download from Maven Central         |
 | `COCKROACHDB_VERSION` | `v25.4.11`       | CockroachDB image tag (and the image used for `cockroach cert`) |
-| `DEBEZIUM_VERSION`    | `3.5.0.Final`    | Debezium Connect image tag                                      |
+| `DEBEZIUM_VERSION`    | `3.6.0.Final`    | Debezium Connect image tag                                      |
 | `CONFLUENT_VERSION`   | `7.4.0`          | Confluent Platform (Kafka/ZK) image tag                         |
-| `BUILD_FROM_SOURCE`   | `true`           | Build connector from local source instead of downloading        |
+| `BUILD_FROM_SOURCE`   | `false`          | Build connector from local source instead of downloading        |
 | `SKIP_BUILD`          | `false`          | Skip download/build, use existing jars in `connect-plugins/`    |
 | `REGENERATE_CERTS`    | `false`          | Force `generate-certs.sh` to rebuild material in `certs/`       |
 

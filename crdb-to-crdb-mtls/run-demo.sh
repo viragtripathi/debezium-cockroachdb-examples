@@ -13,9 +13,9 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECTOR_PROJECT="${SCRIPT_DIR}/../../debezium-connector-cockroachdb"
-CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.6.0-SNAPSHOT}"
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.6.0.Final}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
-BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-true}"
+BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -110,13 +110,13 @@ elif [ "$BUILD_FROM_SOURCE" = "true" ]; then
     cd "$CONNECTOR_PROJECT"
     SOURCE_VERSION=$(./mvnw -q help:evaluate -Dexpression=project.version -DforceStdout 2>/dev/null || echo "unknown")
     if [ -n "${CONNECTOR_VERSION_OVERRIDE:-}" ] || \
-       { [ "$CONNECTOR_VERSION" != "3.6.0-SNAPSHOT" ] && [ "$CONNECTOR_VERSION" != "$SOURCE_VERSION" ]; }; then
+       { [ "$CONNECTOR_VERSION" != "3.6.0.Final" ] && [ "$CONNECTOR_VERSION" != "$SOURCE_VERSION" ]; }; then
         warn "CONNECTOR_VERSION=${CONNECTOR_VERSION} is ignored when BUILD_FROM_SOURCE=true."
         warn "  Maven will build whatever is checked out at ${CONNECTOR_PROJECT} (project.version=${SOURCE_VERSION})."
         warn "  To build a specific tag: git -C ${CONNECTOR_PROJECT} checkout v${CONNECTOR_VERSION} first."
         warn "  To download a released version instead: BUILD_FROM_SOURCE=false CONNECTOR_VERSION=${CONNECTOR_VERSION} ./run-demo.sh"
     fi
-    info "Building connector ${SOURCE_VERSION} from source (mTLS feature requires 3.6.0-SNAPSHOT or later)..."
+    info "Building connector ${SOURCE_VERSION} from source (mTLS feature requires 3.6.0 or later)..."
     ./mvnw clean package -DskipTests -DskipITs -Passembly -q
     PLUGIN_ARCHIVE=$(ls target/debezium-connector-cockroachdb-*-plugin.tar.gz 2>/dev/null | head -1)
     [ -z "$PLUGIN_ARCHIVE" ] && PLUGIN_ARCHIVE=$(ls target/debezium-connector-cockroachdb-*-plugin.zip 2>/dev/null | head -1)
