@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS orders (
     currency STRING DEFAULT 'USD',
     status STRING NOT NULL DEFAULT 'pending',
     items JSONB,
+    -- NOT NULL JSONB coverage: exercises the optional JSONB field mapping (debezium/dbz#2253)
+    metadata JSONB NOT NULL DEFAULT '{}',
     tags STRING[],
     shipping_weight_kg DECIMAL(8,2),
     is_express BOOLEAN DEFAULT false,

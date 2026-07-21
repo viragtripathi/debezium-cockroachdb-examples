@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS orders (
     currency STRING DEFAULT 'USD',
     status STRING NOT NULL DEFAULT 'pending',
     items JSONB,
+    -- NOT NULL JSONB coverage: exercises the optional JSONB field mapping (debezium/dbz#2253)
+    metadata JSONB NOT NULL DEFAULT '{}',
     tags STRING[],
     shipping_weight_kg DECIMAL(8,2),
     is_express BOOLEAN DEFAULT false,
@@ -79,15 +81,18 @@ INSERT INTO customers (name, email, tier) VALUES
     ('Carol Davis', 'carol@example.com', 'platinum');
 
 -- Insert sample data
-INSERT INTO orders (order_number, customer_name, email, amount, status, items, tags, shipping_weight_kg, is_express) VALUES
+INSERT INTO orders (order_number, customer_name, email, amount, status, items, metadata, tags, shipping_weight_kg, is_express) VALUES
     ('ORD-1001', 'Alice Johnson', 'alice@example.com', 129.99, 'confirmed',
      '{"products": [{"name": "Wireless Headphones", "qty": 1, "price": 79.99}, {"name": "Phone Case", "qty": 2, "price": 25.00}]}',
+     '{"channel": "web", "campaign": "spring"}',
      ARRAY['electronics', 'priority'], 0.45, true),
     ('ORD-1002', 'Bob Smith', 'bob@example.com', 249.50, 'pending',
      '{"products": [{"name": "Mechanical Keyboard", "qty": 1, "price": 149.50}, {"name": "Mouse Pad", "qty": 1, "price": 100.00}]}',
+     '{"channel": "mobile"}',
      ARRAY['electronics', 'office'], 1.20, false),
     ('ORD-1003', 'Carol Davis', 'carol@example.com', 34.99, 'shipped',
      '{"products": [{"name": "Programming Book", "qty": 1, "price": 34.99}]}',
+     '{}',
      ARRAY['books', 'education'], 0.55, false);
 
 -- Seed the non-public schema table

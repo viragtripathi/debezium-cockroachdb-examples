@@ -326,6 +326,13 @@ for line in sys.stdin:
 else
     warn "Priority field not yet visible (backfill may still be in progress)"
 fi
+
+info "Checking if the NOT NULL JSONB 'audit' field appears in Kafka events (debezium/dbz#2253)..."
+if echo "$SCHEMA_EVENTS" | grep -q '"audit"'; then
+    success "NOT NULL JSONB column detected: 'audit' field present in change events"
+else
+    warn "Audit field not yet visible (backfill may still be in progress)"
+fi
 echo ""
 
 # ── Step 15: Incremental Snapshot Demo ──────────────────────────────────────

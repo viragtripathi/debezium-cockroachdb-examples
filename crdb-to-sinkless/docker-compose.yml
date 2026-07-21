@@ -30,7 +30,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
   cockroachdb:
-    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.11}
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.13}
     hostname: cockroachdb
     container_name: demo-cockroachdb
     command: start-single-node --insecure
@@ -45,7 +45,7 @@ services:
       start_period: 10s
 
   cockroachdb-target:
-    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.11}
+    image: cockroachdb/cockroach:${COCKROACHDB_VERSION:-v25.4.13}
     hostname: cockroachdb-target
     container_name: demo-cockroachdb-target
     command: start-single-node --insecure
@@ -60,7 +60,7 @@ services:
       start_period: 10s
 
   connect:
-    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.5.0.Final}
+    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.6.0.Final}
     hostname: connect
     container_name: demo-connect
     depends_on:

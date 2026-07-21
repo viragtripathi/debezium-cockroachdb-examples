@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_name STRING NOT NULL,
     amount DECIMAL(12,2) NOT NULL CHECK (amount >= 0),
     status STRING NOT NULL DEFAULT 'pending',
+    -- NOT NULL JSONB coverage: exercises the optional JSONB field mapping (debezium/dbz#2253)
+    metadata JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT current_timestamp()
 );
 

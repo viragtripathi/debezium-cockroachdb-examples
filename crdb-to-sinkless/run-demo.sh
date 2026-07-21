@@ -3,7 +3,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECTOR_PROJECT="${SCRIPT_DIR}/../../debezium-connector-cockroachdb"
-CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.5.0.Final}"
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.6.0.Final}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 

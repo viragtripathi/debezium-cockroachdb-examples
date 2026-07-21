@@ -46,13 +46,13 @@ BUILD_FROM_SOURCE=true ./run-demo.sh
 
 Override component versions via environment variables:
 ```bash
-CONNECTOR_VERSION=3.6.0.Final COCKROACHDB_VERSION=v25.4.11 DEBEZIUM_VERSION=3.6.0.Final ./run-demo.sh
+CONNECTOR_VERSION=3.6.0.Final COCKROACHDB_VERSION=v25.4.13 DEBEZIUM_VERSION=3.6.0.Final ./run-demo.sh
 ```
 
 | Variable              | Default       | Description                                                  |
 |-----------------------|---------------|--------------------------------------------------------------|
 | `CONNECTOR_VERSION`   | `3.6.0.Final` | Connector plugin version to download from Maven Central      |
-| `COCKROACHDB_VERSION` | `v25.4.11`    | CockroachDB image tag                                        |
+| `COCKROACHDB_VERSION` | `v25.4.13`    | CockroachDB image tag                                        |
 | `DEBEZIUM_VERSION`    | `3.6.0.Final` | Debezium Connect image tag                                   |
 | `CONFLUENT_VERSION`   | `7.4.0`       | Confluent Platform (Kafka/ZK) image tag                      |
 | `BUILD_FROM_SOURCE`   | `false`       | Build connector from local source instead of downloading     |
