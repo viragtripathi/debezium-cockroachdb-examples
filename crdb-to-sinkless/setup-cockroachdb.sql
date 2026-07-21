@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS orders (
     items JSONB,
     -- NOT NULL JSONB coverage: exercises the optional JSONB field mapping (debezium/dbz#2253)
     metadata JSONB NOT NULL DEFAULT '{}',
+    -- High-precision DECIMAL coverage: exercises exact decimal passthrough (debezium/dbz#2256)
+    precise_qty DECIMAL(28,18) NOT NULL DEFAULT 0.0,
     tags STRING[],
     shipping_weight_kg DECIMAL(8,2),
     is_express BOOLEAN DEFAULT false,

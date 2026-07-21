@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS orders (
     status STRING NOT NULL DEFAULT 'pending',
     -- NOT NULL JSONB coverage: exercises the optional JSONB field mapping (debezium/dbz#2253)
     metadata JSONB NOT NULL DEFAULT '{}',
+    -- High-precision DECIMAL coverage: exercises exact decimal passthrough (debezium/dbz#2256)
+    precise_qty DECIMAL(28,18) NOT NULL DEFAULT 0.0,
     created_at TIMESTAMPTZ DEFAULT current_timestamp()
 );
 

@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS orders (
     items JSONB,
     -- NOT NULL JSONB coverage: exercises the optional JSONB field mapping (debezium/dbz#2253)
     metadata JSONB NOT NULL DEFAULT '{}',
+    -- High-precision DECIMAL coverage: exercises exact decimal passthrough (debezium/dbz#2256)
+    precise_qty DECIMAL(28,18) NOT NULL DEFAULT 0.0,
     tags STRING[],
     shipping_weight_kg DECIMAL(8,2),
     is_express BOOLEAN DEFAULT false,
@@ -81,18 +83,21 @@ INSERT INTO customers (name, email, tier) VALUES
     ('Carol Davis', 'carol@example.com', 'platinum');
 
 -- Insert sample data
-INSERT INTO orders (order_number, customer_name, email, amount, status, items, metadata, tags, shipping_weight_kg, is_express) VALUES
+INSERT INTO orders (order_number, customer_name, email, amount, status, items, metadata, precise_qty, tags, shipping_weight_kg, is_express) VALUES
     ('ORD-1001', 'Alice Johnson', 'alice@example.com', 129.99, 'confirmed',
      '{"products": [{"name": "Wireless Headphones", "qty": 1, "price": 79.99}, {"name": "Phone Case", "qty": 2, "price": 25.00}]}',
      '{"channel": "web", "campaign": "spring"}',
+     9999999999.999999999,
      ARRAY['electronics', 'priority'], 0.45, true),
     ('ORD-1002', 'Bob Smith', 'bob@example.com', 249.50, 'pending',
      '{"products": [{"name": "Mechanical Keyboard", "qty": 1, "price": 149.50}, {"name": "Mouse Pad", "qty": 1, "price": 100.00}]}',
      '{"channel": "mobile"}',
+     0.000000000000000001,
      ARRAY['electronics', 'office'], 1.20, false),
     ('ORD-1003', 'Carol Davis', 'carol@example.com', 34.99, 'shipped',
      '{"products": [{"name": "Programming Book", "qty": 1, "price": 34.99}]}',
      '{}',
+     0.0,
      ARRAY['books', 'education'], 0.55, false);
 
 -- Seed the non-public schema table

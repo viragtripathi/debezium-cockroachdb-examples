@@ -333,6 +333,13 @@ if echo "$SCHEMA_EVENTS" | grep -q '"audit"'; then
 else
     warn "Audit field not yet visible (backfill may still be in progress)"
 fi
+
+info "Checking DECIMAL(28,18) precision passthrough (debezium/dbz#2256)..."
+if echo "$SCHEMA_EVENTS" | grep -q '9999999999.999999999'; then
+    success "High-precision DECIMAL preserved: precise_qty carries all 19 significant digits"
+else
+    warn "Full-precision decimal not found in sampled events"
+fi
 echo ""
 
 # ── Step 15: Incremental Snapshot Demo ──────────────────────────────────────
