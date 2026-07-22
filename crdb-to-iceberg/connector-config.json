@@ -1,0 +1,26 @@
+{
+  "name": "cockroachdb-source",
+  "config": {
+    "connector.class": "io.debezium.connector.cockroachdb.CockroachDBConnector",
+    "tasks.max": "1",
+    "database.hostname": "cockroachdb",
+    "database.port": "26257",
+    "database.user": "root",
+    "database.password": "",
+    "database.dbname": "demodb",
+    "database.sslmode": "disable",
+    "topic.prefix": "crdb",
+    "table.include.list": "public.orders,public.customers",
+    "cockroachdb.changefeed.sink.type": "kafka",
+    "cockroachdb.changefeed.sink.uri": "kafka://kafka:9092",
+    "cockroachdb.changefeed.kafka.bootstrap.servers": "kafka:9092",
+    "cockroachdb.changefeed.enriched.properties": "source,schema",
+    "cockroachdb.changefeed.kafka.auto.offset.reset": "earliest",
+    "cockroachdb.changefeed.resolved.interval": "5s",
+    "snapshot.mode": "initial",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "true",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "true"
+  }
+}
