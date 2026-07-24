@@ -1,7 +1,7 @@
 # Fully-Secure CockroachDB → mTLS Kafka via the Debezium Connector
 
 End-to-end demo that exercises the **`cockroachdb.changefeed.sink.tls.*`
-properties** ([debezium/dbz#1974](https://issues.redhat.com/browse/DBZ-1974))
+properties** ([debezium/dbz#1974](https://github.com/debezium/dbz/issues/1974))
 on the [Debezium CockroachDB source connector](https://github.com/debezium/debezium-connector-cockroachdb)
 against:
 
