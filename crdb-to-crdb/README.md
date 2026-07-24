@@ -47,6 +47,9 @@ CONNECTOR_VERSION=3.6.0.Final COCKROACHDB_VERSION=v25.4.13 DEBEZIUM_VERSION=3.6.
 | `BUILD_FROM_SOURCE`   | `false`       | Build connector from local source instead of downloading     |
 | `SKIP_BUILD`          | `false`       | Skip download/build, use existing jars in `connect-plugins/` |
 | `OBSERVABILITY`       | `false`       | Also start the Prometheus + Grafana metrics overlay (`observability/`) |
+| `WORKLOAD`            | (unset)       | `bank` adds a realistic-traffic phase using `cockroach workload bank` |
+| `WORKLOAD_DURATION`   | `30s`         | How long the bank workload runs                              |
+| `WORKLOAD_MAX_RATE`   | `50`          | Cap on bank workload operations per second                   |
 
 The script is fully automated and runs through 22 steps:
 
@@ -90,6 +93,26 @@ The script is fully automated and runs through 22 steps:
 | Restart resume        | A source connector restart resumes from its persisted position without replaying the backlog |
 | Debug logging         | Full event pipeline visible in connector logs                              |
 | Data types            | UUID, STRING, DECIMAL, BOOLEAN, JSONB, TIMESTAMPTZ, arrays                 |
+
+## Realistic Traffic (`WORKLOAD=bank`)
+
+The scripted DML above is deterministic on purpose: it makes the assertions exact and turns the
+demo into a regression tripwire. For traffic that looks more like a real application, run:
+
+```bash
+WORKLOAD=bank ./run-demo.sh
+```
+
+After the core demo, the script initializes the built-in
+[`cockroach workload bank`](https://www.cockroachlabs.com/docs/stable/cockroach-workload#bank-workload)
+workload (1000 accounts in `bank.public.bank`), deploys a second source and sink connector pair
+for that database, and runs concurrent balance transfers for `WORKLOAD_DURATION` at up to
+`WORKLOAD_MAX_RATE` operations per second.
+
+The verification uses the workload's own invariant: bank only moves money between accounts, so
+once the pipeline drains, both the row count and `sum(balance)` must match exactly between
+source and target. A mismatch in either means an event was lost, duplicated in a
+non-idempotent way, or applied with wrong values.
 
 ## Services
 

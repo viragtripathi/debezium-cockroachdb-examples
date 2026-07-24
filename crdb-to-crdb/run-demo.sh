@@ -10,6 +10,10 @@ BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 # Optional Prometheus + Grafana observability overlay (observability/). When OBSERVABILITY=true the
 # demo also starts the JMX-exporter-enabled Connect image, Prometheus, and Grafana.
 OBSERVABILITY="${OBSERVABILITY:-false}"
+
+# Optional realistic traffic: WORKLOAD=bank runs the built-in cockroach bank workload through the
+# pipeline and verifies row-count and total-balance parity between source and target.
+WORKLOAD="${WORKLOAD:-}"
 COMPOSE_FILES="-f docker-compose.yml"
 if [ "$OBSERVABILITY" = "true" ]; then
     COMPOSE_FILES="$COMPOSE_FILES -f observability/docker-compose.observability.yml"
@@ -567,6 +571,55 @@ if [ "$RESUME_AFTER" -le "$((RESUME_BEFORE + 2))" ]; then
     success "Restart did not replay: output offset stayed at ~$RESUME_BEFORE (connector resumed from its persisted position)"
 else
     warn "Output topic grew from $RESUME_BEFORE to $RESUME_AFTER after a restart with no new data -- possible replay"
+fi
+
+# ── Step 21d: Optional bank workload (WORKLOAD=bank) ───────────────────────
+if [ "$WORKLOAD" = "bank" ]; then
+    header "STEP 21d: Bank Workload (realistic traffic + balance conservation check)"
+    WORKLOAD_DURATION="${WORKLOAD_DURATION:-30s}"
+    WORKLOAD_MAX_RATE="${WORKLOAD_MAX_RATE:-50}"
+    PGURL='postgresql://root@localhost:26257?sslmode=disable'
+
+    info "Initializing the bank workload (1000 accounts in bank.public.bank)..."
+    docker exec demo-cockroachdb cockroach workload init bank "$PGURL" >/dev/null 2>&1
+    success "bank database initialized"
+
+    HTTP=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Content-Type: application/json" \
+        --data @bank-source-config.json http://localhost:8083/connectors)
+    { [ "$HTTP" = "201" ] || [ "$HTTP" = "409" ]; } || fail "bank source deploy returned HTTP $HTTP"
+    wait_for_task_running "bank-source" 45 || fail "bank source task did not reach RUNNING"
+    success "bank source connector is RUNNING (initial scan backfills the 1000 accounts)"
+
+    HTTP=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Content-Type: application/json" \
+        --data @bank-sink-config.json http://localhost:8083/connectors)
+    { [ "$HTTP" = "201" ] || [ "$HTTP" = "409" ]; } || fail "bank sink deploy returned HTTP $HTTP"
+    wait_for_task_running "bank-jdbc-sink" 45 || fail "bank sink task did not reach RUNNING"
+    success "bank sink connector is RUNNING"
+
+    info "Running balance transfers for ${WORKLOAD_DURATION} (max ${WORKLOAD_MAX_RATE} ops/s)..."
+    docker exec demo-cockroachdb cockroach workload run bank \
+        --duration="$WORKLOAD_DURATION" --max-rate="$WORKLOAD_MAX_RATE" "$PGURL" >/dev/null 2>&1
+    success "Workload finished"
+
+    # The bank workload only moves money between accounts, so the row count and the
+    # total balance are invariants: once the pipeline drains, both must match exactly.
+    SRC_STATE=$(docker exec demo-cockroachdb cockroach sql --insecure -d bank --format=csv \
+        -e "SELECT count(*) || '|' || sum(balance) FROM bank" 2>/dev/null | tail -1)
+    info "Source after workload: count|sum(balance) = $SRC_STATE"
+
+    info "Waiting for the pipeline to drain (polling target for parity)..."
+    TGT_STATE=""
+    for i in $(seq 1 60); do
+        TGT_STATE=$(docker exec demo-cockroachdb-target cockroach sql --insecure -d targetdb --format=csv \
+            -e "SELECT count(*) || '|' || sum(balance) FROM bank_public_bank" 2>/dev/null | tail -1 || echo "")
+        if [ "$TGT_STATE" = "$SRC_STATE" ]; then break; fi
+        echo -n "."
+        sleep 3
+    done
+    echo ""
+    info "Target after drain:   count|sum(balance) = $TGT_STATE"
+    [ "$TGT_STATE" = "$SRC_STATE" ] || fail "Bank parity check failed: source '$SRC_STATE' vs target '$TGT_STATE'"
+    success "Bank parity verified: row count and total balance match exactly after live transfer traffic"
 fi
 
 # ── Step 22: Summary ───────────────────────────────────────────────────────
