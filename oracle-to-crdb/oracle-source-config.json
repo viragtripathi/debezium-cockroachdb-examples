@@ -1,0 +1,22 @@
+{
+  "name": "oracle-source",
+  "config": {
+    "connector.class": "io.debezium.connector.oracle.OracleConnector",
+    "tasks.max": "1",
+    "database.hostname": "oracle",
+    "database.port": "1521",
+    "database.user": "c##dbzuser",
+    "database.password": "dbz",
+    "database.dbname": "ORCLCDB",
+    "database.pdb.name": "ORCLPDB1",
+    "topic.prefix": "oracle",
+    "table.include.list": "DEBEZIUM.CUSTOMERS",
+    "log.mining.strategy": "online_catalog",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
+    "schema.history.internal.kafka.topic": "schema-changes.oracle",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "true",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "true"
+  }
+}
