@@ -77,7 +77,7 @@ success "Source seeded with 3 rows; target table created (empty)"
 
 # ── Step 5: Start the embedded replicator (in-process, Kafka-free) ──────────
 header "STEP 5: Start the Debezium embedded replicator (sinkless source -> JDBC target)"
-nohup "$MVN" -q -Dconnector.version="$CONNECTOR_VERSION" compile exec:java > "$APP_LOG" 2>&1 &
+nohup "$MVN" -q -Dconnector.version="$CONNECTOR_VERSION" -Ddebezium.version="$CONNECTOR_VERSION" compile exec:java > "$APP_LOG" 2>&1 &
 APP_PID=$!
 info "Embedded app started (PID $APP_PID), logs at $APP_LOG"
 
