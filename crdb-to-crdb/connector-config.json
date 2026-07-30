@@ -13,6 +13,7 @@
     "signal.data.collection": "demodb.public.debezium_signal",
     "cockroachdb.changefeed.enriched.properties": "source",
     "cockroachdb.changefeed.max.tables.per.changefeed": 2,
+    "cockroachdb.changefeed.kafka.sink.config": "{\"Flush\": {\"Messages\": 1000, \"Frequency\": \"1s\"}}",
     "cockroachdb.changefeed.include.updated": true,
     "cockroachdb.changefeed.include.diff": true,
     "cockroachdb.changefeed.resolved.interval": "10s",

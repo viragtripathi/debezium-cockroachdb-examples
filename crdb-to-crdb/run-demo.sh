@@ -3,7 +3,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECTOR_PROJECT="${SCRIPT_DIR}/../../debezium-connector-cockroachdb"
-CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.6.0.Final}"
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha1}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 
@@ -264,6 +264,14 @@ if [ "$CHANGEFEED_COUNT" = "2" ]; then
 else
     warn "Expected 2 running changefeeds, found ${CHANGEFEED_COUNT} (set max.tables.per.changefeed=0 for a single changefeed)"
 fi
+info "Verifying kafka_sink_config reached the changefeed jobs (debezium/dbz#2278)..."
+SINKCFG=$(docker exec demo-cockroachdb cockroach sql --insecure --format=csv \
+    -e "SELECT count(*) FROM [SHOW CHANGEFEED JOBS] WHERE status = 'running' AND description LIKE '%kafka_sink_config%'" 2>/dev/null | tail -1 | tr -d '[:space:]')
+if [ "$SINKCFG" != "0" ] && [ -n "$SINKCFG" ]; then
+    success "kafka_sink_config present in ${SINKCFG} changefeed job(s)"
+else
+    warn "kafka_sink_config not found in any running changefeed job description"
+fi
 
 # ── Step 12: Deploy JDBC sink connector ────────────────────────────────────
 header "STEP 12: Deploy Debezium JDBC Sink Connector (target CRDB)"
@@ -343,6 +351,13 @@ if echo "$SCHEMA_EVENTS" | grep -q '9999999999.999999999'; then
     success "High-precision DECIMAL preserved: precise_qty carries all 19 significant digits"
 else
     warn "Full-precision decimal not found in sampled events"
+fi
+
+info "Checking BYTES decoding (debezium/dbz#2310): doc_hash x'beef' must arrive as bytes (base64 vu8=)..."
+if echo "$SCHEMA_EVENTS" | grep -q '"doc_hash":"vu8="'; then
+    success "BYTES column decoded end to end: doc_hash arrived as base64-encoded bytes"
+else
+    warn "doc_hash bytes value not found in sampled events"
 fi
 echo ""
 

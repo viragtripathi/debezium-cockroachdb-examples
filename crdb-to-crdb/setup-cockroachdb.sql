@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS orders (
     metadata JSONB NOT NULL DEFAULT '{}',
     -- High-precision DECIMAL coverage: exercises exact decimal passthrough (debezium/dbz#2256)
     precise_qty DECIMAL(28,18) NOT NULL DEFAULT 0.0,
+    doc_hash BYTES NOT NULL DEFAULT x'beef',
     tags STRING[],
     shipping_weight_kg DECIMAL(8,2),
     is_express BOOLEAN DEFAULT false,

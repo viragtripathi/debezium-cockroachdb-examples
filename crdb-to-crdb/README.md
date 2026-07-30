@@ -35,12 +35,12 @@ BUILD_FROM_SOURCE=true ./run-demo.sh
 
 Override component versions via environment variables:
 ```bash
-CONNECTOR_VERSION=3.6.0.Final COCKROACHDB_VERSION=v25.4.13 DEBEZIUM_VERSION=3.6.0.Final ./run-demo.sh
+CONNECTOR_VERSION=3.7.0.Alpha1 COCKROACHDB_VERSION=v25.4.13 DEBEZIUM_VERSION=3.6.0.Final ./run-demo.sh
 ```
 
 | Variable              | Default       | Description                                                  |
 |-----------------------|---------------|--------------------------------------------------------------|
-| `CONNECTOR_VERSION`   | `3.6.0.Final` | Connector plugin version to download from Maven Central      |
+| `CONNECTOR_VERSION`   | `3.7.0.Alpha1` | Connector plugin version to download from Maven Central     |
 | `COCKROACHDB_VERSION` | `v25.4.13`    | CockroachDB image tag                                        |
 | `DEBEZIUM_VERSION`    | `3.6.0.Final` | Debezium Connect image tag                                   |
 | `CONFLUENT_VERSION`   | `7.4.0`       | Confluent Platform (Kafka/ZK) image tag                      |
@@ -92,7 +92,7 @@ The script is fully automated and runs through 22 steps:
 | Heartbeat support     | Resolved timestamps advance offsets and emit heartbeat records             |
 | Restart resume        | A source connector restart resumes from its persisted position without replaying the backlog |
 | Debug logging         | Full event pipeline visible in connector logs                              |
-| Data types            | UUID, STRING, DECIMAL, BOOLEAN, JSONB, TIMESTAMPTZ, arrays                 |
+| Data types            | UUID, STRING, DECIMAL, BOOLEAN, JSONB, BYTES, TIMESTAMPTZ, arrays          |
 
 ## Realistic Traffic (`WORKLOAD=bank`)
 
