@@ -43,16 +43,18 @@ wait_for_task_running() {
     return 1
 }
 
-# The delete step needs the fix from debezium/dbz#2267, which is newer than 3.6.0.Final.
-# Until a release carries it, build the connector from the sibling repo when available.
-BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-auto}"
+# The delete step needs fixes that ship in 3.7.0.Alpha1 and later; the script downloads
+# that release from Maven Central by default, or builds from the sibling repo with
+# BUILD_FROM_SOURCE=true.
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha1}"
+BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 CONNECTOR_PROJECT="${CONNECTOR_PROJECT:-$SCRIPT_DIR/../../debezium-connector-cockroachdb}"
 
 header "STEP 0: Obtain the CockroachDB Connector"
 CRDB_PLUGIN_DIR="$SCRIPT_DIR/connect-plugins/debezium-connector-cockroachdb"
 if [ -n "$(ls "$CRDB_PLUGIN_DIR"/*.jar 2>/dev/null)" ]; then
     success "CockroachDB connector already present in connect-plugins/"
-elif [ "$BUILD_FROM_SOURCE" != "false" ] && [ -d "$CONNECTOR_PROJECT" ]; then
+elif [ "$BUILD_FROM_SOURCE" = "true" ] && [ -d "$CONNECTOR_PROJECT" ]; then
     info "Building the CockroachDB connector from source ($CONNECTOR_PROJECT)..."
     (cd "$CONNECTOR_PROJECT" && ./mvnw clean package -Passembly -DskipTests -DskipITs -q)
     PLUGIN_ZIP=$(ls "$CONNECTOR_PROJECT"/target/debezium-connector-cockroachdb-*-plugin.zip | head -1)
@@ -61,9 +63,16 @@ elif [ "$BUILD_FROM_SOURCE" != "false" ] && [ -d "$CONNECTOR_PROJECT" ]; then
     unzip -q -o "$PLUGIN_ZIP" -d "$SCRIPT_DIR/connect-plugins/"
     success "CockroachDB connector built from source"
 else
-    warn "Using the connector bundled in the Connect image (3.6.0.Final): the delete step"
-    warn "below needs the fix from debezium/dbz#2267 and will stop the source task."
-    mkdir -p "$CRDB_PLUGIN_DIR"
+    info "Downloading connector plugin ${CONNECTOR_VERSION} from Maven Central..."
+    mkdir -p "$SCRIPT_DIR/connect-plugins"
+    PLUGIN_URL="https://repo1.maven.org/maven2/io/debezium/debezium-connector-cockroachdb/${CONNECTOR_VERSION}/debezium-connector-cockroachdb-${CONNECTOR_VERSION}-plugin.zip"
+    if curl -fSL -o /tmp/crdb-plugin.zip "$PLUGIN_URL" 2>/dev/null; then
+        unzip -q -o /tmp/crdb-plugin.zip -d "$SCRIPT_DIR/connect-plugins/"
+        rm -f /tmp/crdb-plugin.zip
+        success "CockroachDB connector ${CONNECTOR_VERSION} downloaded"
+    else
+        fail "Download failed; retry or use BUILD_FROM_SOURCE=true"
+    fi
 fi
 
 header "STEP 1: Start Containers"

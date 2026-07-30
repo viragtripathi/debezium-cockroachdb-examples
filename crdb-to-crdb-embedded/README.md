@@ -62,7 +62,7 @@ so restarts resume from the last committed position with no Kafka and no local s
 
 This is an ordinary Maven app: it **resolves the connector from Maven by default** (no clone needed).
 Because the sinkless feature is not in a published release yet, the requested version
-(`3.6.0-SNAPSHOT`) is not on Maven, so the script automatically falls back to building it from the
+(`3.7.0.Alpha1`) resolves from Maven Central; if it cannot be resolved, the script falls back to building it from the
 local connector clone. Once a release includes sinkless, point the demo at it and it runs purely from
 Maven:
 
@@ -72,7 +72,7 @@ CONNECTOR_VERSION=<released-version> ./run-demo.sh   # resolves from Maven, no c
 
 | Variable              | Default          | Description                                                            |
 |-----------------------|------------------|------------------------------------------------------------------------|
-| `CONNECTOR_VERSION`   | `3.6.0-SNAPSHOT` | Connector artifact version to resolve from Maven                       |
+| `CONNECTOR_VERSION`   | `3.7.0.Alpha1` | Connector artifact version to resolve from Maven                         |
 | `BUILD_FROM_SOURCE`   | `auto`           | `auto` = Maven first, source fallback; `true` = always build from clone; `false` = Maven only (fail if absent) |
 | `COCKROACHDB_VERSION` | `v25.4.13`       | CockroachDB image tag                                                  |
 | `MVN`                 | `mvn`            | Maven command to use                                                   |

@@ -10,7 +10,7 @@ APP_LOG="/tmp/crdb-embedded-app.log"
 # requested version is not published (e.g. the unreleased sinkless snapshot) does it fall back to
 # building from a local connector clone. Uses system Maven (mvn); no connector wrapper required.
 MVN="${MVN:-mvn}"
-CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.6.0-SNAPSHOT}"
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha1}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-auto}"   # auto | true | false
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'

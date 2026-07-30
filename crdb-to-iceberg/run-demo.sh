@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 SCRIPT_DIR="$(pwd)"
 
-CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.6.0.Final}"
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha1}"
 ICEBERG_SINK_VERSION="${ICEBERG_SINK_VERSION:-1.9.2}"
 # The delete step needs the fix from debezium/dbz#2267, which is newer than 3.6.0.Final.
 # Until a release carries it, build the connector from the sibling repo when available.

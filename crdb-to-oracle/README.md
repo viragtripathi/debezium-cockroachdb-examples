@@ -25,11 +25,10 @@ Prerequisites: docker with compose, curl, python3. The Oracle image is about 2.8
 first boot creates the database, which takes 10 minutes or more; later runs on the same
 containers start much faster.
 
-One version note: the delete step exercises a connector fix (debezium/dbz#2267) that is newer
-than the 3.6.0.Final release. The script builds the connector from the sibling
-debezium-connector-cockroachdb checkout automatically when one is present next to this repo;
-without one, it falls back to the bundled release and the delete step will stop the source
-task until the next release ships.
+One version note: the delete step exercises connector fixes that ship in 3.7.0.Alpha1 and
+later. The script downloads that release from Maven Central by default; set
+BUILD_FROM_SOURCE=true to build from the sibling debezium-connector-cockroachdb checkout
+instead.
 
 ```bash
 ./run-demo.sh

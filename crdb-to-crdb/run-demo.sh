@@ -126,7 +126,7 @@ else
             warn "Download failed. The version ${CONNECTOR_VERSION} may not be published yet."
             info "Options:"
             info "  1. Build from source:  BUILD_FROM_SOURCE=true ./run-demo.sh"
-            info "  2. Specify a version:  CONNECTOR_VERSION=3.6.0.Final ./run-demo.sh"
+            info "  2. Specify a version:  CONNECTOR_VERSION=3.7.0.Alpha1 ./run-demo.sh"
             info "  3. Place jars manually in connect-plugins/debezium-connector-cockroachdb/ and run with SKIP_BUILD=true"
             fail "Cannot proceed without connector plugin"
         fi
