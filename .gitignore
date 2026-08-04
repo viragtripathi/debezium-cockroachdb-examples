@@ -1,4 +1,5 @@
 **/connect-plugins/
+**/connect-plugins-jdbc/
 *.log
 .DS_Store
 .idea/

@@ -85,6 +85,9 @@ services:
       CONNECT_LOG4J_LOGGER_ORG_APACHE_KAFKA: WARN
     volumes:
       - ./connect-plugins:/kafka/connect/debezium-connector-cockroachdb
+      # Shadows the image's bundled 3.6 JDBC sink with the version staged by run-demo.sh,
+      # so the demo gets the CockroachDB dialect and UNNEST batch writes (debezium/dbz#2355).
+      - ./connect-plugins-jdbc/debezium-connector-jdbc:/kafka/connect/debezium-connector-jdbc
 
 networks:
   default:

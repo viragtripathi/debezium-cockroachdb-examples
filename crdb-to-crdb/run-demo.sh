@@ -4,6 +4,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECTOR_PROJECT="${SCRIPT_DIR}/../../debezium-connector-cockroachdb"
 CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha1}"
+# The JDBC sink is staged separately because the Connect image still bundles the 3.6 sink,
+# which predates the CockroachDB dialect and the UNNEST batch write path (debezium/dbz#2355).
+JDBC_SINK_VERSION="${JDBC_SINK_VERSION:-3.7.0.Alpha1}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 
@@ -130,6 +133,28 @@ else
             info "  3. Place jars manually in connect-plugins/debezium-connector-cockroachdb/ and run with SKIP_BUILD=true"
             fail "Cannot proceed without connector plugin"
         fi
+    fi
+fi
+
+# ── Step 2b: Obtain JDBC sink plugin ────────────────────────────────────────
+header "STEP 2b: Obtain JDBC Sink Plugin (${JDBC_SINK_VERSION})"
+if [ -d "$SCRIPT_DIR/connect-plugins-jdbc/debezium-connector-jdbc" ] \
+    && [ -n "$(ls "$SCRIPT_DIR/connect-plugins-jdbc/debezium-connector-jdbc/"*.jar 2>/dev/null)" ]; then
+    success "JDBC sink plugin already present in connect-plugins-jdbc/"
+    info "To re-download, run: rm -rf connect-plugins-jdbc && ./run-demo.sh"
+else
+    JDBC_MAVEN_BASE="https://repo1.maven.org/maven2/io/debezium/debezium-connector-jdbc"
+    JDBC_ZIP_NAME="debezium-connector-jdbc-${JDBC_SINK_VERSION}-plugin.zip"
+    info "Downloading JDBC sink plugin ${JDBC_SINK_VERSION} from Maven Central..."
+    cd "$SCRIPT_DIR"
+    rm -rf connect-plugins-jdbc
+    mkdir -p connect-plugins-jdbc
+    if curl -fSL -o "/tmp/${JDBC_ZIP_NAME}" "${JDBC_MAVEN_BASE}/${JDBC_SINK_VERSION}/${JDBC_ZIP_NAME}"; then
+        unzip -q -o "/tmp/${JDBC_ZIP_NAME}" -d connect-plugins-jdbc/
+        rm -f "/tmp/${JDBC_ZIP_NAME}"
+        success "JDBC sink plugin ${JDBC_SINK_VERSION} extracted to connect-plugins-jdbc/"
+    else
+        fail "JDBC sink plugin download failed; cannot proceed (the sink config relies on the ${JDBC_SINK_VERSION} dialect and UNNEST support)"
     fi
 fi
 
@@ -294,6 +319,16 @@ if ! wait_for_task_running "debezium-jdbc-sink" 30; then
     warn "Sink connector task did not reach RUNNING state -- check logs below"
 fi
 
+# ── Step 12b: CockroachDB dialect auto-resolution (3.7+ sink) ───────────────
+header "STEP 12b: CockroachDB Dialect Auto-Resolution (3.7+ sink)"
+if docker logs demo-connect 2>&1 | grep -qi "CockroachDBDatabaseDialect"; then
+    success "Sink resolved the CockroachDB dialect (no hibernate.dialect pin needed on 3.7+)"
+else
+    fail "CockroachDB dialect not resolved: the staged ${JDBC_SINK_VERSION} sink plugin did not take effect"
+fi
+info "Set-based UNNEST batch writes are demonstrated by the bank sink (WORKLOAD=bank);"
+info "the orders table has a BYTES column, which the UNNEST path cannot bind yet (debezium/dbz#2357)."
+
 # ── Step 13: Run DML operations ────────────────────────────────────────────
 header "STEP 13: Run DML Operations on Source CRDB"
 info "Executing INSERT, UPDATE, DELETE on source..."
@@ -425,7 +460,7 @@ echo ""
 header "STEP 17: JDBC Sink Connector Debug Logs (writing to target)"
 echo ""
 docker logs demo-connect 2>&1 \
-    | grep -iE "Flushing records|CREATE TABLE|ALTER TABLE|upsert|Skipping tombstone|Using dialect|Database version|orders|customers" \
+    | grep -iE "Flushing records|CREATE TABLE|ALTER TABLE|upsert|Unnest|Skipping tombstone|Using dialect|Database version|orders|customers" \
     | tail -15
 echo ""
 
@@ -610,6 +645,16 @@ if [ "$WORKLOAD" = "bank" ]; then
     { [ "$HTTP" = "201" ] || [ "$HTTP" = "409" ]; } || fail "bank sink deploy returned HTTP $HTTP"
     wait_for_task_running "bank-jdbc-sink" 45 || fail "bank sink task did not reach RUNNING"
     success "bank sink connector is RUNNING"
+
+    # Set-based UNNEST batch writes (debezium/dbz#2355): the bank sink enables
+    # dialect.postgres.unnest.insert.enabled plus use.reduction.buffer (required when a batch
+    # can repeat a primary key, debezium/dbz#2356). The parity check below then proves
+    # correctness under concurrent same-key updates.
+    if docker logs demo-connect 2>&1 | grep -q "Using UnnestRecordWriter for UNNEST optimization"; then
+        success "bank sink engaged the UnnestRecordWriter: batches write as set-based UNNEST statements"
+    else
+        fail "UnnestRecordWriter log line not found for the bank sink (dialect.postgres.unnest.insert.enabled did not take effect)"
+    fi
 
     info "Running balance transfers for ${WORKLOAD_DURATION} (max ${WORKLOAD_MAX_RATE} ops/s)..."
     docker exec demo-cockroachdb cockroach workload run bank \

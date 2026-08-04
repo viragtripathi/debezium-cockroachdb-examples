@@ -154,7 +154,11 @@ non-idempotent way, or applied with wrong values.
 | `primary.key.mode`       | `record_key`                                          | Use the Kafka record key as the primary key           |
 | `schema.evolution`       | `basic`                                               | Auto-create and alter target tables                   |
 | `collection.name.format` | `orders_replica`                                      | Target table name                                     |
-| `hibernate.dialect`      | `PostgreSQLDialect`                                   | Required for CockroachDB (PostgreSQL wire-compatible) |
+
+No `hibernate.dialect` pin: the staged 3.7 sink resolves the CockroachDB dialect from the
+connection URL automatically. The bank sink (`bank-sink-config.json`, deployed with
+`WORKLOAD=bank`) additionally enables set-based `UNNEST` batch writes; see
+[Set-based UNNEST batch writes](#set-based-unnest-batch-writes-debeziumdbz2355).
 
 ## Topic Naming and Changefeed Grouping
 
@@ -340,11 +344,44 @@ lag, throughput, and create/update/delete counts. To drive sustained traffic, ru
 ## Known Limitations
 
 - **CockroachDB insecure mode**: The demo uses `--insecure` for simplicity. For production, use SSL certificates.
-- **Hibernate dialect**: The JDBC sink requires `hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect`. While CockroachDB has a first-class [`CockroachDialect`](https://docs.hibernate.org/orm/6.3/javadocs/org/hibernate/dialect/CockroachDialect.html) in Hibernate 6.x ([CockroachDB + Hibernate docs](https://www.cockroachlabs.com/docs/stable/build-a-java-app-with-cockroachdb-hibernate)), the Debezium JDBC sink's `DatabaseDialectResolver` does not yet have a CockroachDB-specific `DatabaseDialectProvider`. Since `CockroachDialect` extends `Dialect` directly (not `PostgreSQLDialect`), the resolver falls back to `GeneralDatabaseDialect` which lacks upsert support. Using `PostgreSQLDialect` correctly maps to the Debezium `PostgresDatabaseDialect`, which generates the `INSERT ... ON CONFLICT ... DO UPDATE` syntax that CockroachDB supports. Adding a `CockroachDBDatabaseDialectProvider` to the Debezium JDBC sink is a natural follow-up enhancement.
+- **JDBC sink version**: The Connect image still bundles the 3.6 JDBC sink, so the demo stages the
+  3.7 sink plugin (`connect-plugins-jdbc/`, mounted over the bundled one). The 3.7 sink ships a
+  CockroachDB dialect that resolves automatically from the connection URL, generates
+  `INSERT ... ON CONFLICT ... DO UPDATE` upserts, and retries serialization conflicts (SQL states
+  40001/40P01) in place, so the old `hibernate.dialect=PostgreSQLDialect` pin is no longer needed.
+  On a 3.6 sink, keep that pin.
+
+## Set-based UNNEST batch writes (debezium/dbz#2355)
+
+The bank sink (`WORKLOAD=bank`) enables `dialect.postgres.unnest.insert.enabled=true`, which
+switches the JDBC sink from per-row prepared statements to one
+`INSERT ... SELECT * FROM UNNEST(...)` statement per batch, with each column bound as a SQL
+array. The CockroachDB dialect inherits this from the PostgreSQL dialect. This follows
+CockroachDB's
+[multi-row statement guidance](https://www.cockroachlabs.com/docs/stable/performance-best-practices-overview#use-multi-row-statements-instead-of-multiple-single-row-statements);
+a TPC-C replay measured roughly 2.7x sink write throughput versus the per-row default. The demo
+asserts the engaged path via the `Using UnnestRecordWriter for UNNEST optimization` log line and
+then proves correctness with the bank parity check (exact row count and total balance under
+concurrent same-key updates).
+
+Two caveats, both found by this demo and filed upstream:
+
+- The option must be paired with `use.reduction.buffer=true`. Without it, a batch that carries
+  more than one event for the same primary key (routine under concurrent updates) makes the
+  combined statement fail with `UPSERT or INSERT...ON CONFLICT command cannot affect row a
+  second time` and the task stops
+  ([debezium/dbz#2356](https://github.com/debezium/dbz/issues/2356)). The reduction buffer keeps
+  only the most recent event per key per buffer, which guarantees unique keys per statement.
+- Tables with binary columns fail on CockroachDB targets: the UNNEST path binds arrays with the
+  dialect's DDL type name, and the CockroachDB dialect produces the alias `bytes`, which is not
+  a `pg_type` name the driver accepts
+  ([debezium/dbz#2357](https://github.com/debezium/dbz/issues/2357)). The main sink of this demo
+  keeps the default per-row path for that reason: its `orders` table carries the `doc_hash`
+  BYTES column.
 
 ## Cleanup
 
 ```bash
 docker compose down -v
-rm -rf connect-plugins
+rm -rf connect-plugins connect-plugins-jdbc
 ```
