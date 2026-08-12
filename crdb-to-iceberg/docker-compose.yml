@@ -20,7 +20,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
   cockroachdb:
-    image: cockroachdb/cockroach:v25.4.13
+    image: cockroachdb/cockroach:v25.4.14
     container_name: iceberg-demo-cockroachdb
     command: start-single-node --insecure
     ports:
