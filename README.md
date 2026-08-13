@@ -13,6 +13,7 @@ End-to-end CDC replication examples using [Debezium](https://debezium.io/) conne
 | [crdb-to-iceberg](crdb-to-iceberg/)     | CockroachDB       | Apache Iceberg | CDC into Apache Iceberg tables using the official Apache Iceberg Kafka Connect sink, with MinIO object storage and an Iceberg REST catalog. Any Iceberg-capable engine (Spark, Trino, DuckDB, ClickHouse) can query the result. |
 | [crdb-to-oracle](crdb-to-oracle/)       | CockroachDB       | Oracle 19c   | CockroachDB changes into Oracle via the Debezium JDBC sink (Oracle dialect auto-resolved). Optional `WORKLOAD=tpcc` scale test streams the full TPC-C dataset (9 tables, ~600k rows) into Oracle and asserts per-table row-count parity. |
 | [crdb-to-neo4j](crdb-to-neo4j/)         | CockroachDB       | Neo4j        | CDC into a Neo4j graph via the official Neo4j Kafka Connect sink (Cypher strategy): rows become nodes, the foreign key becomes a `(:Customer)-[:PLACED]->(:Order)` relationship, with insert, update, and delete propagation verified end to end. |
+| [crdb-to-redpanda](crdb-to-redpanda/)   | CockroachDB       | CockroachDB (via Redpanda) | The crdb-to-crdb pipeline with **Redpanda** replacing Apache Kafka: the changefeed produces into Redpanda and Kafka Connect runs against it, proving both Kafka-protocol touchpoints with only a bootstrap-address change. |
 | [oracle-to-crdb](oracle-to-crdb/)       | Oracle 19c        | CockroachDB  | Oracle CDC via the Debezium Oracle connector (LogMiner) into CockroachDB. The one-time ARCHIVELOG and LogMiner preparation is fully automated, and the source config is tuning-free per Debezium 3.6.                              |
 | [pg-to-crdb](pg-to-crdb/)               | PostgreSQL        | CockroachDB  | PostgreSQL partitioned table migration using the Debezium PostgreSQL source connector with `ByLogicalTableRouter` SMT to merge partition topics.                                                                                    |
 
@@ -58,6 +59,12 @@ or
 
 ```bash
 cd crdb-to-neo4j && ./run-demo.sh
+```
+
+or
+
+```bash
+cd crdb-to-redpanda && ./run-demo.sh
 ```
 
 or
