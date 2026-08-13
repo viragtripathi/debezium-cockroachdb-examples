@@ -1,5 +1,6 @@
 **/connect-plugins/
 **/connect-plugins-jdbc/
+**/connect-plugins-neo4j/
 *.log
 .DS_Store
 .idea/

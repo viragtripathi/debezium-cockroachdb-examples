@@ -12,6 +12,7 @@ End-to-end CDC replication examples using [Debezium](https://debezium.io/) conne
 | [crdb-to-crdb-mtls](crdb-to-crdb-mtls/) | CockroachDB (TLS) | Kafka (mTLS) | Fully-secure pipeline: pgjdbc `verify-full` to a secure CockroachDB cluster + `cockroachdb.changefeed.sink.tls.*` ([debezium/dbz#1974](https://github.com/debezium/dbz/issues/1974)) to push the changefeed over mutual TLS to Kafka. |
 | [crdb-to-iceberg](crdb-to-iceberg/)     | CockroachDB       | Apache Iceberg | CDC into Apache Iceberg tables using the official Apache Iceberg Kafka Connect sink, with MinIO object storage and an Iceberg REST catalog. Any Iceberg-capable engine (Spark, Trino, DuckDB, ClickHouse) can query the result. |
 | [crdb-to-oracle](crdb-to-oracle/)       | CockroachDB       | Oracle 19c   | CockroachDB changes into Oracle via the Debezium JDBC sink (Oracle dialect auto-resolved). Optional `WORKLOAD=tpcc` scale test streams the full TPC-C dataset (9 tables, ~600k rows) into Oracle and asserts per-table row-count parity. |
+| [crdb-to-neo4j](crdb-to-neo4j/)         | CockroachDB       | Neo4j        | CDC into a Neo4j graph via the official Neo4j Kafka Connect sink (Cypher strategy): rows become nodes, the foreign key becomes a `(:Customer)-[:PLACED]->(:Order)` relationship, with insert, update, and delete propagation verified end to end. |
 | [oracle-to-crdb](oracle-to-crdb/)       | Oracle 19c        | CockroachDB  | Oracle CDC via the Debezium Oracle connector (LogMiner) into CockroachDB. The one-time ARCHIVELOG and LogMiner preparation is fully automated, and the source config is tuning-free per Debezium 3.6.                              |
 | [pg-to-crdb](pg-to-crdb/)               | PostgreSQL        | CockroachDB  | PostgreSQL partitioned table migration using the Debezium PostgreSQL source connector with `ByLogicalTableRouter` SMT to merge partition topics.                                                                                    |
 
@@ -51,6 +52,12 @@ or
 
 ```bash
 cd crdb-to-oracle && ./run-demo.sh
+```
+
+or
+
+```bash
+cd crdb-to-neo4j && ./run-demo.sh
 ```
 
 or

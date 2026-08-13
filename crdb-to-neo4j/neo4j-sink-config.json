@@ -1,0 +1,26 @@
+{
+  "name": "neo4j-sink",
+  "config": {
+    "connector.class": "org.neo4j.connectors.kafka.sink.Neo4jConnector",
+    "tasks.max": "1",
+    "topics": "crdb.public.customers,crdb.public.orders",
+    "neo4j.uri": "neo4j://neo4j:7687",
+    "neo4j.authentication.type": "BASIC",
+    "neo4j.authentication.basic.username": "neo4j",
+    "neo4j.authentication.basic.password": "demopassword",
+    "neo4j.cypher.bind-key-as": "__key",
+    "neo4j.cypher.bind-value-as": "__value",
+    "neo4j.cypher.bind-value-as-event": false,
+    "neo4j.cypher.topic.crdb.public.customers": "WITH __value AS cdcEvent, __key AS cdcKey FOREACH (_ IN CASE WHEN cdcEvent.op IN ['c','u','r'] THEN [1] ELSE [] END | MERGE (c:Customer {id: cdcKey.id}) SET c.name = cdcEvent.after.name, c.email = cdcEvent.after.email, c.tier = cdcEvent.after.tier) WITH cdcEvent, cdcKey OPTIONAL MATCH (dc:Customer {id: cdcKey.id}) WHERE cdcEvent.op = 'd' DETACH DELETE dc",
+    "neo4j.cypher.topic.crdb.public.orders": "WITH __value AS cdcEvent, __key AS cdcKey FOREACH (_ IN CASE WHEN cdcEvent.op IN ['c','u','r'] THEN [1] ELSE [] END | MERGE (o:Order {id: cdcKey.id}) SET o.amount = cdcEvent.after.amount, o.status = cdcEvent.after.status MERGE (c:Customer {id: cdcEvent.after.customer_id}) MERGE (c)-[:PLACED]->(o)) WITH cdcEvent, cdcKey OPTIONAL MATCH (dor:Order {id: cdcKey.id}) WHERE cdcEvent.op = 'd' DETACH DELETE dor",
+    "transforms": "dropTombstones",
+    "transforms.dropTombstones.type": "org.apache.kafka.connect.transforms.Filter",
+    "transforms.dropTombstones.predicate": "isTombstone",
+    "predicates": "isTombstone",
+    "predicates.isTombstone.type": "org.apache.kafka.connect.transforms.predicates.RecordIsTombstone",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "true",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "true"
+  }
+}
