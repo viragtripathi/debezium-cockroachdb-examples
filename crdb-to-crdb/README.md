@@ -35,12 +35,12 @@ BUILD_FROM_SOURCE=true ./run-demo.sh
 
 Override component versions via environment variables:
 ```bash
-CONNECTOR_VERSION=3.7.0.Alpha1 COCKROACHDB_VERSION=v25.4.14 DEBEZIUM_VERSION=3.6.0.Final ./run-demo.sh
+CONNECTOR_VERSION=3.7.0.Alpha2 COCKROACHDB_VERSION=v25.4.14 DEBEZIUM_VERSION=3.6.0.Final ./run-demo.sh
 ```
 
 | Variable              | Default       | Description                                                  |
 |-----------------------|---------------|--------------------------------------------------------------|
-| `CONNECTOR_VERSION`   | `3.7.0.Alpha1` | Connector plugin version to download from Maven Central     |
+| `CONNECTOR_VERSION`   | `3.7.0.Alpha2` | Connector plugin version to download from Maven Central     |
 | `COCKROACHDB_VERSION` | `v25.4.14`    | CockroachDB image tag                                        |
 | `DEBEZIUM_VERSION`    | `3.6.0.Final` | Debezium Connect image tag                                   |
 | `CONFLUENT_VERSION`   | `7.4.0`       | Confluent Platform (Kafka/ZK) image tag                      |
@@ -353,18 +353,17 @@ lag, throughput, and create/update/delete counts. To drive sustained traffic, ru
 
 ## Set-based UNNEST batch writes (debezium/dbz#2355)
 
-The bank sink (`WORKLOAD=bank`) enables `dialect.postgres.unnest.insert.enabled=true`, which
-switches the JDBC sink from per-row prepared statements to one
-`INSERT ... SELECT * FROM UNNEST(...)` statement per batch, with each column bound as a SQL
-array. The CockroachDB dialect inherits this from the PostgreSQL dialect. This follows
-CockroachDB's
+Both sinks enable `dialect.postgres.unnest.insert.enabled=true`, which switches the JDBC sink
+from per-row prepared statements to one `INSERT ... SELECT * FROM UNNEST(...)` statement per
+batch, with each column bound as a SQL array. The CockroachDB dialect inherits this from the
+PostgreSQL dialect. This follows CockroachDB's
 [multi-row statement guidance](https://www.cockroachlabs.com/docs/stable/performance-best-practices-overview#use-multi-row-statements-instead-of-multiple-single-row-statements);
 a TPC-C replay measured roughly 2.7x sink write throughput versus the per-row default. The demo
 asserts the engaged path via the `Using UnnestRecordWriter for UNNEST optimization` log line and
-then proves correctness with the bank parity check (exact row count and total balance under
-concurrent same-key updates).
+then proves correctness with the exact source-target comparisons (and, under `WORKLOAD=bank`,
+row-count and total-balance parity under concurrent same-key updates).
 
-Two caveats, both found by this demo and filed upstream:
+Two behaviors to know about, both found by this demo and resolved upstream:
 
 - The option must be paired with `use.reduction.buffer=true`. Without it, a batch that carries
   more than one event for the same primary key (routine under concurrent updates) makes the
@@ -372,12 +371,12 @@ Two caveats, both found by this demo and filed upstream:
   second time` and the task stops
   ([debezium/dbz#2356](https://github.com/debezium/dbz/issues/2356)). The reduction buffer keeps
   only the most recent event per key per buffer, which guarantees unique keys per statement.
-- Tables with binary columns fail on CockroachDB targets: the UNNEST path binds arrays with the
-  dialect's DDL type name, and the CockroachDB dialect produces the alias `bytes`, which is not
-  a `pg_type` name the driver accepts
-  ([debezium/dbz#2357](https://github.com/debezium/dbz/issues/2357)). The main sink of this demo
-  keeps the default per-row path for that reason: its `orders` table carries the `doc_hash`
-  BYTES column.
+- Batches containing BYTES fields cannot be bound as SQL arrays by the PostgreSQL driver. On
+  sinks before 3.7.0.Alpha2 this killed the task
+  ([debezium/dbz#2357](https://github.com/debezium/dbz/issues/2357)); from 3.7.0.Alpha2 such
+  batches fall back to the per-row path automatically, so tables like `orders` (which carries
+  the `doc_hash` BYTES column) replicate correctly but without the UNNEST speedup, while tables
+  without binary columns get the fast path.
 
 ## Cleanup
 

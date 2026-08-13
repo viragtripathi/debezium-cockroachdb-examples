@@ -3,10 +3,10 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECTOR_PROJECT="${SCRIPT_DIR}/../../debezium-connector-cockroachdb"
-CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha1}"
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha2}"
 # The JDBC sink is staged separately because the Connect image still bundles the 3.6 sink,
 # which predates the CockroachDB dialect and the UNNEST batch write path (debezium/dbz#2355).
-JDBC_SINK_VERSION="${JDBC_SINK_VERSION:-3.7.0.Alpha1}"
+JDBC_SINK_VERSION="${JDBC_SINK_VERSION:-3.7.0.Alpha2}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 
@@ -129,7 +129,7 @@ else
             warn "Download failed. The version ${CONNECTOR_VERSION} may not be published yet."
             info "Options:"
             info "  1. Build from source:  BUILD_FROM_SOURCE=true ./run-demo.sh"
-            info "  2. Specify a version:  CONNECTOR_VERSION=3.7.0.Alpha1 ./run-demo.sh"
+            info "  2. Specify a version:  CONNECTOR_VERSION=3.7.0.Alpha2 ./run-demo.sh"
             info "  3. Place jars manually in connect-plugins/debezium-connector-cockroachdb/ and run with SKIP_BUILD=true"
             fail "Cannot proceed without connector plugin"
         fi
@@ -319,15 +319,18 @@ if ! wait_for_task_running "debezium-jdbc-sink" 30; then
     warn "Sink connector task did not reach RUNNING state -- check logs below"
 fi
 
-# ── Step 12b: CockroachDB dialect auto-resolution (3.7+ sink) ───────────────
-header "STEP 12b: CockroachDB Dialect Auto-Resolution (3.7+ sink)"
+# ── Step 12b: CockroachDB dialect + UNNEST batch writes (3.7+ sink) ─────────
+header "STEP 12b: CockroachDB Dialect Auto-Resolution + UNNEST Batch Writes"
 if docker logs demo-connect 2>&1 | grep -qi "CockroachDBDatabaseDialect"; then
     success "Sink resolved the CockroachDB dialect (no hibernate.dialect pin needed on 3.7+)"
 else
     fail "CockroachDB dialect not resolved: the staged ${JDBC_SINK_VERSION} sink plugin did not take effect"
 fi
-info "Set-based UNNEST batch writes are demonstrated by the bank sink (WORKLOAD=bank);"
-info "the orders table has a BYTES column, which the UNNEST path cannot bind yet (debezium/dbz#2357)."
+if docker logs demo-connect 2>&1 | grep -q "Using UnnestRecordWriter for UNNEST optimization"; then
+    success "Sink engaged the UnnestRecordWriter (debezium/dbz#2355); batches with BYTES fields fall back to per-row safely (debezium/dbz#2357, fixed in 3.7.0.Alpha2)"
+else
+    fail "UnnestRecordWriter log line not found: dialect.postgres.unnest.insert.enabled did not take effect"
+fi
 
 # ── Step 13: Run DML operations ────────────────────────────────────────────
 header "STEP 13: Run DML Operations on Source CRDB"

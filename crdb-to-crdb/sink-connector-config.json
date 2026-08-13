@@ -13,6 +13,8 @@
     "primary.key.fields": "id",
     "schema.evolution": "basic",
     "collection.name.format": "${topic}",
+    "dialect.postgres.unnest.insert.enabled": "true",
+    "use.reduction.buffer": "true",
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": "true",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",

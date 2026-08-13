@@ -25,7 +25,7 @@ Prerequisites: docker with compose, curl, python3. The Oracle image is about 2.8
 first boot creates the database, which takes 10 minutes or more; later runs on the same
 containers start much faster.
 
-One version note: the delete step exercises connector fixes that ship in 3.7.0.Alpha1 and
+One version note: the delete step exercises connector fixes that ship in 3.7.0.Alpha2 and
 later. The script downloads that release from Maven Central by default; set
 BUILD_FROM_SOURCE=true to build from the sibling debezium-connector-cockroachdb checkout
 instead.

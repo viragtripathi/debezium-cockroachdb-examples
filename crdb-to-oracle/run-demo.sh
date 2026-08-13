@@ -43,10 +43,10 @@ wait_for_task_running() {
     return 1
 }
 
-# The delete step needs fixes that ship in 3.7.0.Alpha1 and later; the script downloads
+# The delete step needs fixes that ship in 3.7.0.Alpha2 and later; the script downloads
 # that release from Maven Central by default, or builds from the sibling repo with
 # BUILD_FROM_SOURCE=true.
-CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha1}"
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha2}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 CONNECTOR_PROJECT="${CONNECTOR_PROJECT:-$SCRIPT_DIR/../../debezium-connector-cockroachdb}"
 

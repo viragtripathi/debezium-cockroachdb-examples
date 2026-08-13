@@ -43,7 +43,7 @@ Prerequisites: docker with compose, curl, python3 on the host. About 4 GB of fre
 the containers.
 
 One version note: the delete step exercises a connector fix (debezium/dbz#2267) that is newer
-than the 3.6.0.Final release; they ship in 3.7.0.Alpha1, which the script downloads by default. With BUILD_FROM_SOURCE=true it instead builds the connector from the sibling
+than the 3.6.0.Final release; they ship in 3.7.0.Alpha2, which the script downloads by default. With BUILD_FROM_SOURCE=true it instead builds the connector from the sibling
 debezium-connector-cockroachdb checkout automatically when one is present next to this repo;
 without one, it downloads the latest release and the delete step will stop the source task
 until the next release ships. JDK 21 and Maven are only needed for the build-from-source path.
