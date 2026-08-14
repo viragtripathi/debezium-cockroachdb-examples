@@ -1,86 +1,49 @@
 # Debezium CockroachDB Examples
 
 End-to-end CDC replication examples using [Debezium](https://debezium.io/) connectors with CockroachDB.
-
-## Demos
-
-| Demo                                    | Source            | Target       | Description                                                                                                                                                                                                                         |
-|-----------------------------------------|-------------------|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [crdb-to-crdb](crdb-to-crdb/)           | CockroachDB       | CockroachDB  | Full CDC replication using the Debezium CockroachDB source connector with enriched changefeeds. Includes multi-table, multi-schema, schema evolution, and incremental snapshot demos. Optional `WORKLOAD=bank` phase runs concurrent transfer traffic and verifies row-count and total-balance parity. |
-| [crdb-to-sinkless](crdb-to-sinkless/)   | CockroachDB       | CockroachDB  | Same pipeline as `crdb-to-crdb` but using the **sinkless** changefeed mode (`cockroachdb.changefeed.sink.type=sinkless`): the changefeed streams over the connector's SQL connection with no intermediate Kafka ([debezium/dbz#2024](https://github.com/debezium/dbz/issues/2024)). |
-| [crdb-to-crdb-embedded](crdb-to-crdb-embedded/) | CockroachDB | CockroachDB | **Fully Kafka-free.** The connector runs in sinkless mode inside the Debezium **embedded engine** (no Kafka, no Kafka Connect); an in-process consumer applies changes to the target over JDBC ([debezium/dbz#2024](https://github.com/debezium/dbz/issues/2024)). |
-| [crdb-to-crdb-mtls](crdb-to-crdb-mtls/) | CockroachDB (TLS) | Kafka (mTLS) | Fully-secure pipeline: pgjdbc `verify-full` to a secure CockroachDB cluster + `cockroachdb.changefeed.sink.tls.*` ([debezium/dbz#1974](https://github.com/debezium/dbz/issues/1974)) to push the changefeed over mutual TLS to Kafka. |
-| [crdb-to-iceberg](crdb-to-iceberg/)     | CockroachDB       | Apache Iceberg | CDC into Apache Iceberg tables using the official Apache Iceberg Kafka Connect sink, with MinIO object storage and an Iceberg REST catalog. Any Iceberg-capable engine (Spark, Trino, DuckDB, ClickHouse) can query the result. |
-| [crdb-to-oracle](crdb-to-oracle/)       | CockroachDB       | Oracle 19c   | CockroachDB changes into Oracle via the Debezium JDBC sink (Oracle dialect auto-resolved). Optional `WORKLOAD=tpcc` scale test streams the full TPC-C dataset (9 tables, ~600k rows) into Oracle and asserts per-table row-count parity. |
-| [crdb-to-neo4j](crdb-to-neo4j/)         | CockroachDB       | Neo4j        | CDC into a Neo4j graph via the official Neo4j Kafka Connect sink (Cypher strategy): rows become nodes, the foreign key becomes a `(:Customer)-[:PLACED]->(:Order)` relationship, with insert, update, and delete propagation verified end to end. |
-| [crdb-to-redpanda](crdb-to-redpanda/)   | CockroachDB       | CockroachDB (via Redpanda) | The crdb-to-crdb pipeline with **Redpanda** replacing Apache Kafka: the changefeed produces into Redpanda and Kafka Connect runs against it, proving both Kafka-protocol touchpoints with only a bootstrap-address change. |
-| [oracle-to-crdb](oracle-to-crdb/)       | Oracle 19c        | CockroachDB  | Oracle CDC via the Debezium Oracle connector (LogMiner) into CockroachDB. The one-time ARCHIVELOG and LogMiner preparation is fully automated, and the source config is tuning-free per Debezium 3.6.                              |
-| [pg-to-crdb](pg-to-crdb/)               | PostgreSQL        | CockroachDB  | PostgreSQL partitioned table migration using the Debezium PostgreSQL source connector with `ByLogicalTableRouter` SMT to merge partition topics.                                                                                    |
-
-## Quick Start
-
-Each demo is self-contained. Navigate to the demo folder and run:
+Every demo is self-contained, fully automated, and self-verifying: one script starts the
+containers, deploys the connectors, drives changes, and asserts the results.
 
 ```bash
-cd crdb-to-crdb && ./run-demo.sh
+cd <demo-directory> && ./run-demo.sh
 ```
 
-or
+New here? Start with [crdb-to-crdb](crdb-to-crdb/), the flagship demo.
 
-```bash
-cd crdb-to-sinkless && ./run-demo.sh
-```
+## CockroachDB as the CDC source: pipeline and delivery modes
 
-or
+How change events leave CockroachDB, and over what transport.
 
-```bash
-cd crdb-to-crdb-embedded && ./run-demo.sh
-```
+| Demo | Highlights |
+|------|------------|
+| [crdb-to-crdb](crdb-to-crdb/) | **The flagship.** Full CDC replication via Kafka into a second CockroachDB: multi-table, multi-schema, schema evolution, incremental snapshots, UNNEST batch writes on the sink. Optional `WORKLOAD=bank` phase verifies row-count and total-balance parity under concurrent traffic. |
+| [crdb-to-sinkless](crdb-to-sinkless/) | The same pipeline in **sinkless** mode: the changefeed streams over the connector's SQL connection, no intermediate Kafka topics ([debezium/dbz#2024](https://github.com/debezium/dbz/issues/2024)). |
+| [crdb-to-crdb-embedded](crdb-to-crdb-embedded/) | **Fully Kafka-free.** Sinkless mode inside the Debezium embedded engine; an in-process consumer applies changes to the target over JDBC. No Kafka, no Kafka Connect. |
+| [crdb-to-crdb-mtls](crdb-to-crdb-mtls/) | Fully-secure pipeline: pgjdbc `verify-full` to a TLS CockroachDB cluster, and the changefeed pushed to Kafka over mutual TLS via `cockroachdb.changefeed.sink.tls.*` ([debezium/dbz#1974](https://github.com/debezium/dbz/issues/1974)). |
+| [crdb-to-redpanda](crdb-to-redpanda/) | The pipeline with **Redpanda** replacing Apache Kafka: the changefeed produces into Redpanda and Kafka Connect runs against it. The only configuration delta is the bootstrap address. |
 
-or
+## CockroachDB as the CDC source: destinations
 
-```bash
-cd crdb-to-crdb-mtls && ./run-demo.sh
-```
+Where the change events land.
 
-or
+| Demo | Target | Highlights |
+|------|--------|------------|
+| [crdb-to-oracle](crdb-to-oracle/) | Oracle 19c | Via the Debezium JDBC sink (Oracle dialect auto-resolved). Optional `WORKLOAD=tpcc` scale test streams the full TPC-C dataset (9 tables, ~600k rows) and asserts per-table row-count parity. |
+| [crdb-to-iceberg](crdb-to-iceberg/) | Apache Iceberg | Via the official Apache Iceberg Kafka Connect sink, with MinIO object storage and an Iceberg REST catalog. Queryable from any Iceberg-capable engine (Spark, Trino, DuckDB, ClickHouse). |
+| [crdb-to-neo4j](crdb-to-neo4j/) | Neo4j | Via the official Neo4j Kafka Connect sink (Cypher strategy): rows become nodes, the foreign key becomes a `(:Customer)-[:PLACED]->(:Order)` relationship, with insert, update, and delete propagation verified. |
 
-```bash
-cd crdb-to-iceberg && ./run-demo.sh
-```
+## CockroachDB as the target
 
-or
+Migrating into CockroachDB from other databases via Debezium CDC.
 
-```bash
-cd crdb-to-oracle && ./run-demo.sh
-```
-
-or
-
-```bash
-cd crdb-to-neo4j && ./run-demo.sh
-```
-
-or
-
-```bash
-cd crdb-to-redpanda && ./run-demo.sh
-```
-
-or
-
-```bash
-cd oracle-to-crdb && ./run-demo.sh
-```
-
-or
-
-```bash
-cd pg-to-crdb && ./run-demo.sh
-```
+| Demo | Source | Highlights |
+|------|--------|------------|
+| [oracle-to-crdb](oracle-to-crdb/) | Oracle 19c | Oracle CDC via LogMiner into CockroachDB through the Debezium JDBC sink (CockroachDB dialect auto-resolved). The one-time ARCHIVELOG and LogMiner preparation is fully automated. |
+| [pg-to-crdb](pg-to-crdb/) | PostgreSQL | Partitioned table migration using the Debezium PostgreSQL source connector with the `ByLogicalTableRouter` SMT to merge partition topics. |
 
 ## Prerequisites
 
 - Docker and Docker Compose (or Podman)
 
-See individual demo READMEs for additional details.
+Each demo README documents its own version knobs (`CONNECTOR_VERSION`,
+`DEBEZIUM_VERSION`, `COCKROACHDB_VERSION`, and friends) and any demo-specific options.
