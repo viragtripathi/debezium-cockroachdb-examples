@@ -63,14 +63,14 @@ the PostgreSQL source connector and the JDBC sink connector.
 
 Override component versions:
 ```bash
-POSTGRES_VERSION=16 COCKROACHDB_VERSION=v25.4.14 DEBEZIUM_VERSION=3.6.0.Final ./run-demo.sh
+POSTGRES_VERSION=16 COCKROACHDB_VERSION=v25.4.14 DEBEZIUM_VERSION=3.7.0.Alpha2 ./run-demo.sh
 ```
 
 | Variable              | Default       | Description                             |
 |-----------------------|---------------|-----------------------------------------|
 | `POSTGRES_VERSION`    | `16`          | PostgreSQL image tag                    |
 | `COCKROACHDB_VERSION` | `v25.4.14`    | CockroachDB target image tag            |
-| `DEBEZIUM_VERSION`    | `3.6.0.Final` | Debezium Connect image tag              |
+| `DEBEZIUM_VERSION`    | `3.7.0.Alpha2` | Debezium Connect image tag              |
 | `CONFLUENT_VERSION`   | `7.4.0`       | Confluent Platform (Kafka/ZK) image tag |
 
 ## What the Demo Shows

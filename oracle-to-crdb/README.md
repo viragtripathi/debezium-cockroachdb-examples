@@ -96,10 +96,10 @@ multi-row transactions, the traffic shape a real Oracle migration produces.
 
 ## Notes
 
-- The JDBC sink writes to CockroachDB through the PostgreSQL wire protocol with
-  `hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect`, the same arrangement as the
-  other demos in this repository. Debezium 3.7 adds a first class CockroachDB dialect to the
-  JDBC sink, and these demos will drop the dialect pin when that release ships.
+- The JDBC sink writes to CockroachDB through the PostgreSQL wire protocol. From Debezium
+  3.7 the sink ships a first class CockroachDB dialect that resolves automatically from the
+  connection URL, so the old `hibernate.dialect=PostgreSQLDialect` pin is gone from these
+  configs; on a 3.6.x sink, add it back.
 - Oracle `NUMBER(p,s)` columns arrive as Kafka Connect decimals and land in CockroachDB as
   `DECIMAL`; `VARCHAR2` lands as `STRING`; `TIMESTAMP` columns arrive as epoch values with
   Debezium temporal logical types, the same encoding every Debezium relational connector uses.

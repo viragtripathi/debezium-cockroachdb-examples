@@ -35,14 +35,14 @@ BUILD_FROM_SOURCE=true ./run-demo.sh
 
 Override component versions via environment variables:
 ```bash
-CONNECTOR_VERSION=3.7.0.Alpha2 COCKROACHDB_VERSION=v25.4.14 DEBEZIUM_VERSION=3.6.0.Final ./run-demo.sh
+CONNECTOR_VERSION=3.7.0.Alpha2 COCKROACHDB_VERSION=v25.4.14 DEBEZIUM_VERSION=3.7.0.Alpha2 ./run-demo.sh
 ```
 
 | Variable              | Default       | Description                                                  |
 |-----------------------|---------------|--------------------------------------------------------------|
 | `CONNECTOR_VERSION`   | `3.7.0.Alpha2` | Connector plugin version to download from Maven Central     |
 | `COCKROACHDB_VERSION` | `v25.4.14`    | CockroachDB image tag                                        |
-| `DEBEZIUM_VERSION`    | `3.6.0.Final` | Debezium Connect image tag                                   |
+| `DEBEZIUM_VERSION`    | `3.7.0.Alpha2` | Debezium Connect image tag                                   |
 | `CONFLUENT_VERSION`   | `7.4.0`       | Confluent Platform (Kafka/ZK) image tag                      |
 | `BUILD_FROM_SOURCE`   | `false`       | Build connector from local source instead of downloading     |
 | `SKIP_BUILD`          | `false`       | Skip download/build, use existing jars in `connect-plugins/` |
@@ -344,27 +344,12 @@ lag, throughput, and create/update/delete counts. To drive sustained traffic, ru
 ## Known Limitations
 
 - **CockroachDB insecure mode**: The demo uses `--insecure` for simplicity. For production, use SSL certificates.
-- **JDBC sink version**: The Connect image still bundles the 3.6 JDBC sink, so the demo stages the
-  3.7 sink plugin (`connect-plugins-jdbc/`, mounted over the bundled one). The 3.7 sink ships a
-  CockroachDB dialect that resolves automatically from the connection URL, generates
-  `INSERT ... ON CONFLICT ... DO UPDATE` upserts, and retries serialization conflicts (SQL states
-  40001/40P01) in place, so the old `hibernate.dialect=PostgreSQLDialect` pin is no longer needed.
-  On a 3.6 sink, keep that pin.
-
-## Set-based UNNEST batch writes (debezium/dbz#2355)
-
-Both sinks enable `dialect.postgres.unnest.insert.enabled=true`, which switches the JDBC sink
-from per-row prepared statements to one `INSERT ... SELECT * FROM UNNEST(...)` statement per
-batch, with each column bound as a SQL array. The CockroachDB dialect inherits this from the
-PostgreSQL dialect. This follows CockroachDB's
-[multi-row statement guidance](https://www.cockroachlabs.com/docs/stable/performance-best-practices-overview#use-multi-row-statements-instead-of-multiple-single-row-statements);
-a TPC-C replay measured roughly 2.7x sink write throughput versus the per-row default. The demo
-asserts the engaged path via the `Using UnnestRecordWriter for UNNEST optimization` log line and
-then proves correctness with the exact source-target comparisons (and, under `WORKLOAD=bank`,
-row-count and total-balance parity under concurrent same-key updates).
-
-Two behaviors to know about, both found by this demo and resolved upstream:
-
+- **JDBC sink version**: the demo stages the JDBC sink plugin (`connect-plugins-jdbc/`,
+  mounted over the bundled one) so its version can be pinned independently of the Connect
+  image; both default to the same release. The 3.7 sink resolves the CockroachDB dialect
+  automatically, generates `INSERT ... ON CONFLICT ... DO UPDATE` upserts, and retries
+  serialization conflicts (SQL states 40001/40P01) in place. On a 3.6 sink, set
+  `hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect`.
 - The option must be paired with `use.reduction.buffer=true`. Without it, a batch that carries
   more than one event for the same primary key (routine under concurrent updates) makes the
   combined statement fail with `UPSERT or INSERT...ON CONFLICT command cannot affect row a

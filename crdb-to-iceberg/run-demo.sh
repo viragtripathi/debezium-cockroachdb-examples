@@ -9,7 +9,7 @@ CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha2}"
 ICEBERG_SINK_VERSION="${ICEBERG_SINK_VERSION:-1.9.2}"
 # The delete step needs the fix from debezium/dbz#2267, which is newer than 3.6.0.Final.
 # Until a release carries it, build the connector from the sibling repo when available.
-BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-auto}"
+BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 CONNECTOR_PROJECT="${CONNECTOR_PROJECT:-$SCRIPT_DIR/../../debezium-connector-cockroachdb}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[0;33m'; BOLD='\033[1m'; NC='\033[0m'

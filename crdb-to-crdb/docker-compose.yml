@@ -60,7 +60,7 @@ services:
       start_period: 10s
 
   connect:
-    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.6.0.Final}
+    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.7.0.Alpha2}
     hostname: connect
     container_name: demo-connect
     depends_on:
@@ -85,8 +85,8 @@ services:
       CONNECT_LOG4J_LOGGER_ORG_APACHE_KAFKA: WARN
     volumes:
       - ./connect-plugins:/kafka/connect/debezium-connector-cockroachdb
-      # Shadows the image's bundled 3.6 JDBC sink with the version staged by run-demo.sh,
-      # so the demo gets the CockroachDB dialect and UNNEST batch writes (debezium/dbz#2355).
+      # Overrides the image's bundled JDBC sink with the version staged by run-demo.sh,
+      # so the sink version is pinned independently of the Connect image.
       - ./connect-plugins-jdbc/debezium-connector-jdbc:/kafka/connect/debezium-connector-jdbc
 
 networks:

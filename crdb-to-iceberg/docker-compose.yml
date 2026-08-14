@@ -67,7 +67,7 @@ services:
       CATALOG_S3_PATH__STYLE__ACCESS: "true"
 
   connect:
-    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.6.0.Final}
+    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.7.0.Alpha2}
     container_name: iceberg-demo-connect
     depends_on:
       - kafka

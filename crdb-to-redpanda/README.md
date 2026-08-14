@@ -40,7 +40,7 @@ Prerequisites: docker with compose, curl, python3.
 | `JDBC_SINK_VERSION`   | `3.7.0.Alpha2` | Debezium JDBC sink version from Maven    |
 | `REDPANDA_VERSION`    | `v26.2.1`      | Redpanda image tag                       |
 | `COCKROACHDB_VERSION` | `v25.4.14`     | CockroachDB image tag                    |
-| `DEBEZIUM_VERSION`    | `3.6.0.Final`  | Debezium Connect image tag               |
+| `DEBEZIUM_VERSION`    | `3.7.0.Alpha2`  | Debezium Connect image tag               |
 
 Tear down:
 

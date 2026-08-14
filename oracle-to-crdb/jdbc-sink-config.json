@@ -12,7 +12,6 @@
     "primary.key.mode": "record_key",
     "schema.evolution": "basic",
     "collection.name.format": "customers",
-    "hibernate.dialect": "org.hibernate.dialect.PostgreSQLDialect",
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": "true",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",

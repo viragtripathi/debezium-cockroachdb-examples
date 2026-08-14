@@ -4,8 +4,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECTOR_PROJECT="${SCRIPT_DIR}/../../debezium-connector-cockroachdb"
 CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha2}"
-# The JDBC sink is staged separately because the Connect image still bundles the 3.6 sink,
-# which predates the CockroachDB dialect and the UNNEST batch write path (debezium/dbz#2355).
+# The JDBC sink is staged separately so its version can be pinned independently of the
+# Connect image (both default to the same release now).
 JDBC_SINK_VERSION="${JDBC_SINK_VERSION:-3.7.0.Alpha2}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
