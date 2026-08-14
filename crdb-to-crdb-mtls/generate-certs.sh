@@ -175,9 +175,11 @@ openssl pkcs8 -topk8 -inform PEM -outform DER \
     -in "${CRDB_DIR}/client.demo.key" \
     -out "${CRDB_DIR}/client.demo.key.pk8" -nocrypt 2>/dev/null
 
-# pgjdbc requires the DER key to be world-readable (0644). Demo only.
-chmod 644 "${CRDB_DIR}/client.demo.key.pk8" \
-          "${CRDB_DIR}/ca.crt" \
+# pgjdbc 42.7.12+ enforces POSIX permissions on the client key: it must be 0600
+# (or 0640 when owned by root) or the connection is rejected outright. The public
+# certificates stay world-readable.
+chmod 600 "${CRDB_DIR}/client.demo.key.pk8"
+chmod 644 "${CRDB_DIR}/ca.crt" \
           "${CRDB_DIR}/client.demo.crt"
 
 # `cockroach cert` writes node.key + client.*.key as 0600 owned by uid 0 (root
