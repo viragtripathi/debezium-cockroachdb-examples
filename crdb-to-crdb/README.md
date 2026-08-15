@@ -363,6 +363,32 @@ lag, throughput, and create/update/delete counts. To drive sustained traffic, ru
   the `doc_hash` BYTES column) replicate correctly but without the UNNEST speedup, while tables
   without binary columns get the fast path.
 
+## Multi-topic fan-in: one sink, many tables
+
+`routing-sink-config.json` shows how a single JDBC sink consumes many topics
+(the pattern a per-topic connector approach does not scale to):
+
+- `topics.regex` selects the topics: `"crdb\\.public\\.(orders|customers)"`.
+- `RegexRouter` strips the topic prefix so each topic maps to its own target table:
+  `crdb.public.orders` becomes `public_orders`. The sink's table name comes from
+  `collection.name.format`, which defaults to `${topic}` after transforms run.
+
+The demo asserts that `public_orders` and `public_customers` in the target match the
+source row counts (step 21b2), alongside the primary sink's `crdb_public_*` tables, so
+the same events land twice through two differently-routed sinks.
+
+From the release containing [debezium/dbz#2432](https://github.com/debezium/dbz/issues/2432),
+the source block carries `schema` and `table`, and the transform-free form works too:
+
+```json
+"topics.regex": "crdb\\.public\\.(orders|customers)",
+"collection.name.format": "${source.schema}_${source.table}"
+```
+
+A dotted format such as `${source.schema}.${source.table}` writes into a schema-qualified
+table instead; the sink auto-creates tables but not schemas, so create the target schema
+first in that case.
+
 ## Cleanup
 
 ```bash

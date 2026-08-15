@@ -332,6 +332,24 @@ else
     fail "UnnestRecordWriter log line not found: dialect.postgres.unnest.insert.enabled did not take effect"
 fi
 
+# ── Step 12c: Multi-topic fan-in with topics.regex (one sink, many tables) ──
+header "STEP 12c: Multi-Topic Fan-In (topics.regex + RegexRouter)"
+info "routing-sink-config.json consumes several topics with one connector: topics.regex"
+info "selects them and RegexRouter strips the prefix, so each topic lands in its own table."
+RESPONSE=$(curl -s -o /tmp/demo-routing-response.json -w "%{http_code}" -X POST \
+    -H "Content-Type: application/json" \
+    --data @routing-sink-config.json \
+    http://localhost:8083/connectors)
+if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 300 ]; then
+    success "Routing sink deployed (HTTP $RESPONSE)"
+elif grep -q "already exists" /tmp/demo-routing-response.json; then
+    warn "Routing sink already exists"
+else
+    cat /tmp/demo-routing-response.json
+    fail "Routing sink deploy failed (HTTP $RESPONSE)"
+fi
+wait_for_task_running "routing-sink" 30 || warn "Routing sink task did not reach RUNNING"
+
 # ── Step 13: Run DML operations ────────────────────────────────────────────
 header "STEP 13: Run DML Operations on Source CRDB"
 info "Executing INSERT, UPDATE, DELETE on source..."
@@ -601,6 +619,18 @@ TGT_CUST=$(docker exec demo-cockroachdb-target cockroach sql --insecure -d targe
     -e "SELECT count(*) FROM crdb_public_customers" --format=csv 2>/dev/null | tail -1 || echo "0")
 echo "  Source orders:    $SRC_ORD rows   |  Target orders:    $TGT_ORD rows"
 echo "  Source customers: $SRC_CUST rows   |  Target customers: $TGT_CUST rows"
+
+# ── Step 21b2: Verify multi-topic fan-in routing ───────────────────────────
+header "STEP 21b2: Verify Multi-Topic Fan-In Routing (topics.regex sink)"
+ROUTED_ORD=$(docker exec demo-cockroachdb-target cockroach sql --insecure -d targetdb \
+    -e "SELECT count(*) FROM public_orders" --format=csv 2>/dev/null | tail -1 || echo "0")
+ROUTED_CUST=$(docker exec demo-cockroachdb-target cockroach sql --insecure -d targetdb \
+    -e "SELECT count(*) FROM public_customers" --format=csv 2>/dev/null | tail -1 || echo "0")
+if [ "$ROUTED_ORD" = "$SRC_ORD" ] && [ "$ROUTED_CUST" = "$SRC_CUST" ]; then
+    success "One sink, many tables: public_orders=$ROUTED_ORD and public_customers=$ROUTED_CUST match the source"
+else
+    fail "Routing sink mismatch: public_orders=$ROUTED_ORD (want $SRC_ORD), public_customers=$ROUTED_CUST (want $SRC_CUST)"
+fi
 
 # ── Step 21c: Restart resume (debezium/dbz#2154) ─────────────────────────────
 header "STEP 21c: Restart Resume (debezium/dbz#2154 -- no replay on restart)"
