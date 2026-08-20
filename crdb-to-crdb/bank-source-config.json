@@ -17,6 +17,7 @@
     "cockroachdb.changefeed.sink.uri": "kafka://kafka:9092",
     "cockroachdb.changefeed.kafka.bootstrap.servers": "kafka:9092",
     "cockroachdb.changefeed.kafka.auto.offset.reset": "earliest",
+    "cockroachdb.changefeed.kafka.consumer.group.prefix": "debezium-cockroachdb-bank-source",
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": "true",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",

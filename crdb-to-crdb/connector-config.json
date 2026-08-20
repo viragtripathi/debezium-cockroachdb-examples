@@ -14,6 +14,8 @@
     "cockroachdb.changefeed.enriched.properties": "source",
     "cockroachdb.changefeed.max.tables.per.changefeed": 2,
     "cockroachdb.changefeed.kafka.sink.config": "{\"Flush\": {\"Messages\": 1000, \"Frequency\": \"1s\"}}",
+    "cockroachdb.changefeed.kafka.consumer.group.prefix": "debezium-cockroachdb-source",
+    "cockroachdb.changefeed.kafka.consumer.offset.commit.enabled": true,
     "cockroachdb.changefeed.include.updated": true,
     "cockroachdb.changefeed.include.diff": true,
     "cockroachdb.changefeed.resolved.interval": "10s",

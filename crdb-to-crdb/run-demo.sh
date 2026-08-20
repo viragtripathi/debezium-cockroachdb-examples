@@ -503,6 +503,23 @@ header "STEP 19: Kafka Topics"
 docker exec demo-kafka kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null \
     | grep -v "^_\|connect-\|demo-connect" | sort
 
+# ── Step 19b: Consumer group offset mirror (debezium/dbz#2472) ─────────────
+header "STEP 19b: Consumer Group Offset Mirror (debezium/dbz#2472)"
+info "The connector resumes from Debezium offsets and by default never commits to its Kafka"
+info "consumer group, so kafka-consumer-groups normally shows no committed offsets for it."
+info "With cockroachdb.changefeed.kafka.consumer.offset.commit.enabled=true it mirrors its"
+info "positions to the group so standard lag tooling reflects connector progress..."
+GROUP_OFFSETS=$(docker exec demo-kafka kafka-consumer-groups \
+    --bootstrap-server localhost:9092 \
+    --describe --group debezium-cockroachdb-source 2>/dev/null | grep -v "^$" || true)
+echo "$GROUP_OFFSETS"
+MIRRORED=$(echo "$GROUP_OFFSETS" | awk 'NR > 1 && $4 ~ /^[0-9]+$/ { count++ } END { print count+0 }')
+if [ "$MIRRORED" -gt 0 ]; then
+    success "Consumer group shows committed offsets on $MIRRORED partition(s): lag tooling works"
+else
+    fail "Consumer group shows no committed offsets; the offset mirror did not commit"
+fi
+
 # ── Step 20: Consume Debezium events from output topic ─────────────────────
 header "STEP 20: Debezium Change Events (orders + customers topics)"
 for TOPIC in crdb.public.orders crdb.public.customers; do

@@ -91,6 +91,7 @@ The script is fully automated and runs through 22 steps:
 | Upsert mode           | Idempotent writes using `INSERT ... ON CONFLICT ... DO UPDATE`             |
 | Heartbeat support     | Resolved timestamps advance offsets and emit heartbeat records             |
 | Restart resume        | A source connector restart resumes from its persisted position without replaying the backlog |
+| Group offset mirror   | With `cockroachdb.changefeed.kafka.consumer.offset.commit.enabled=true` the connector mirrors its consumed positions to its Kafka consumer group, so `kafka-consumer-groups` and lag dashboards reflect its progress ([debezium/dbz#2472](https://github.com/debezium/dbz/issues/2472)) |
 | Debug logging         | Full event pipeline visible in connector logs                              |
 | Data types            | UUID, STRING, DECIMAL, BOOLEAN, JSONB, BYTES, TIMESTAMPTZ, arrays          |
 
@@ -141,6 +142,8 @@ non-idempotent way, or applied with wrong values.
 | `heartbeat.interval.ms`               | `10000`                                                 | Emit heartbeat records every 10s using resolved timestamps |
 | `cockroachdb.changefeed.sink.type`    | `kafka`                                                 | Changefeed sinks to Kafka                                  |
 | `cockroachdb.changefeed.sink.uri`     | `kafka://kafka:9092`                                    | Internal Kafka bootstrap server                            |
+| `cockroachdb.changefeed.kafka.consumer.group.prefix` | `debezium-cockroachdb-source`            | Distinct consumer group per connector; the default is one shared static group, so multiple connectors on the same intermediate Kafka would rebalance each other |
+| `cockroachdb.changefeed.kafka.consumer.offset.commit.enabled` | `true`                          | Mirror consumed positions to the consumer group so external lag tooling works ([debezium/dbz#2472](https://github.com/debezium/dbz/issues/2472)); restart positions always come from the Debezium offsets |
 
 ### Sink Connector (`sink-connector-config.json`)
 
