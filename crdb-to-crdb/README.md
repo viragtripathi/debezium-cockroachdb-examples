@@ -143,7 +143,7 @@ non-idempotent way, or applied with wrong values.
 | `cockroachdb.changefeed.sink.type`    | `kafka`                                                 | Changefeed sinks to Kafka                                  |
 | `cockroachdb.changefeed.sink.uri`     | `kafka://kafka:9092`                                    | Internal Kafka bootstrap server                            |
 | `cockroachdb.changefeed.kafka.consumer.group.prefix` | `debezium-cockroachdb-source`            | Distinct consumer group per connector; the default is one shared static group, so multiple connectors on the same intermediate Kafka would rebalance each other |
-| `cockroachdb.changefeed.kafka.consumer.offset.commit.enabled` | `true`                          | Mirror consumed positions to the consumer group so external lag tooling works ([debezium/dbz#2472](https://github.com/debezium/dbz/issues/2472)); restart positions always come from the Debezium offsets |
+| `cockroachdb.changefeed.kafka.consumer.offset.commit.enabled` | `true`                          | Mirror consumed positions to the consumer group so external lag tooling works ([debezium/dbz#2472](https://github.com/debezium/dbz/issues/2472)); restart positions always come from the Debezium offsets. Requires a connector build newer than 3.7.0.Alpha2 (older builds ignore the property and the demo's Step 19b reports instead of asserting); until the next release, `BUILD_FROM_SOURCE=true` exercises it |
 
 ### Sink Connector (`sink-connector-config.json`)
 

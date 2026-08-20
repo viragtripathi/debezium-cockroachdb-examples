@@ -509,6 +509,14 @@ info "The connector resumes from Debezium offsets and by default never commits t
 info "consumer group, so kafka-consumer-groups normally shows no committed offsets for it."
 info "With cockroachdb.changefeed.kafka.consumer.offset.commit.enabled=true it mirrors its"
 info "positions to the group so standard lag tooling reflects connector progress..."
+# The offset mirror property ships in connector builds after 3.7.0.Alpha2. Released builds
+# up to Alpha2 ignore the property, so on those the step reports instead of asserting.
+OFFSET_MIRROR_SUPPORTED=true
+if [ "$BUILD_FROM_SOURCE" != "true" ]; then
+    case "$CONNECTOR_VERSION" in
+        3.6.*|3.7.0.Alpha*) OFFSET_MIRROR_SUPPORTED=false ;;
+    esac
+fi
 GROUP_OFFSETS=$(docker exec demo-kafka kafka-consumer-groups \
     --bootstrap-server localhost:9092 \
     --describe --group debezium-cockroachdb-source 2>/dev/null | grep -v "^$" || true)
@@ -516,8 +524,10 @@ echo "$GROUP_OFFSETS"
 MIRRORED=$(echo "$GROUP_OFFSETS" | awk 'NR > 1 && $4 ~ /^[0-9]+$/ { count++ } END { print count+0 }')
 if [ "$MIRRORED" -gt 0 ]; then
     success "Consumer group shows committed offsets on $MIRRORED partition(s): lag tooling works"
-else
+elif [ "$OFFSET_MIRROR_SUPPORTED" = "true" ]; then
     fail "Consumer group shows no committed offsets; the offset mirror did not commit"
+else
+    warn "Connector $CONNECTOR_VERSION predates the offset mirror (debezium/dbz#2472): group offsets stay empty on this build. Use BUILD_FROM_SOURCE=true or a newer release to see them."
 fi
 
 # ── Step 20: Consume Debezium events from output topic ─────────────────────
