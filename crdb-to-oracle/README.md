@@ -1,7 +1,14 @@
-# CockroachDB to Oracle
+# CockroachDB to Oracle: feeding Oracle downstream systems
 
-Streams CockroachDB changes into Oracle using the Debezium CockroachDB source connector and
-the Debezium JDBC sink. Everything runs locally in containers.
+Keeps Oracle-based downstream systems (reporting, warehousing, legacy consumers that
+cannot move yet) continuously fed from an operational CockroachDB, using the Debezium
+CockroachDB source connector and the Debezium JDBC sink. Everything runs locally in
+containers.
+
+This is a coexistence pattern for environments where CockroachDB is the system of record
+and an Oracle estate still consumes downstream, not a migration guide. For moving data in
+the other direction, from Oracle into CockroachDB, see the companion
+[`oracle-to-crdb`](../oracle-to-crdb/) demo.
 
 ```
 CockroachDB changefeed
