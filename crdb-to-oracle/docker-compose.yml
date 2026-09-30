@@ -38,7 +38,7 @@ services:
       - "8080:8080"
 
   connect:
-    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.7.0.Alpha2}
+    image: quay.io/debezium/connect:${DEBEZIUM_VERSION:-3.7.0.Final}
     container_name: crdb2ora-connect
     depends_on:
       - kafka

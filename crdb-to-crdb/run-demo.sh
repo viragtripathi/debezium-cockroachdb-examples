@@ -3,10 +3,10 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONNECTOR_PROJECT="${SCRIPT_DIR}/../../debezium-connector-cockroachdb"
-CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Alpha2}"
+CONNECTOR_VERSION="${CONNECTOR_VERSION:-3.7.0.Final}"
 # The JDBC sink is staged separately so its version can be pinned independently of the
 # Connect image (both default to the same release now).
-JDBC_SINK_VERSION="${JDBC_SINK_VERSION:-3.7.0.Alpha2}"
+JDBC_SINK_VERSION="${JDBC_SINK_VERSION:-3.7.0.Final}"
 SKIP_BUILD="${SKIP_BUILD:-false}"
 BUILD_FROM_SOURCE="${BUILD_FROM_SOURCE:-false}"
 
@@ -129,7 +129,7 @@ else
             warn "Download failed. The version ${CONNECTOR_VERSION} may not be published yet."
             info "Options:"
             info "  1. Build from source:  BUILD_FROM_SOURCE=true ./run-demo.sh"
-            info "  2. Specify a version:  CONNECTOR_VERSION=3.7.0.Alpha2 ./run-demo.sh"
+            info "  2. Specify a version:  CONNECTOR_VERSION=3.7.0.Final ./run-demo.sh"
             info "  3. Place jars manually in connect-plugins/debezium-connector-cockroachdb/ and run with SKIP_BUILD=true"
             fail "Cannot proceed without connector plugin"
         fi
@@ -354,7 +354,7 @@ else
     fail "CockroachDB dialect not resolved: the staged ${JDBC_SINK_VERSION} sink plugin did not take effect"
 fi
 if docker logs demo-connect 2>&1 | grep -q "Using UnnestRecordWriter for UNNEST optimization"; then
-    success "Sink engaged the UnnestRecordWriter (debezium/dbz#2355); batches with BYTES fields fall back to per-row safely (debezium/dbz#2357, fixed in 3.7.0.Alpha2)"
+    success "Sink engaged the UnnestRecordWriter (debezium/dbz#2355); batches with BYTES fields fall back to per-row safely (debezium/dbz#2357, fixed in 3.7.0.Final)"
 else
     fail "UnnestRecordWriter log line not found: dialect.postgres.unnest.insert.enabled did not take effect"
 fi
@@ -536,7 +536,7 @@ info "The connector resumes from Debezium offsets and by default never commits t
 info "consumer group, so kafka-consumer-groups normally shows no committed offsets for it."
 info "With cockroachdb.changefeed.kafka.consumer.offset.commit.enabled=true it mirrors its"
 info "positions to the group so standard lag tooling reflects connector progress..."
-# The offset mirror property ships in connector builds after 3.7.0.Alpha2. Released builds
+# The offset mirror property ships in connector builds after 3.7.0.Final. Released builds
 # up to Alpha2 ignore the property, so on those the step reports instead of asserting.
 OFFSET_MIRROR_SUPPORTED=true
 if [ "$BUILD_FROM_SOURCE" != "true" ]; then

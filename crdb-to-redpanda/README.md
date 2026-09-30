@@ -36,11 +36,11 @@ Prerequisites: docker with compose, curl, python3.
 
 | Variable              | Default        | Description                              |
 |-----------------------|----------------|------------------------------------------|
-| `CONNECTOR_VERSION`   | `3.7.0.Alpha2` | CockroachDB connector version from Maven |
-| `JDBC_SINK_VERSION`   | `3.7.0.Alpha2` | Debezium JDBC sink version from Maven    |
+| `CONNECTOR_VERSION`   | `3.7.0.Final` | CockroachDB connector version from Maven |
+| `JDBC_SINK_VERSION`   | `3.7.0.Final` | Debezium JDBC sink version from Maven    |
 | `REDPANDA_VERSION`    | `v26.2.1`      | Redpanda image tag                       |
 | `COCKROACHDB_VERSION` | `v25.4.14`     | CockroachDB image tag                    |
-| `DEBEZIUM_VERSION`    | `3.7.0.Alpha2`  | Debezium Connect image tag               |
+| `DEBEZIUM_VERSION`    | `3.7.0.Final`  | Debezium Connect image tag               |
 
 Tear down:
 

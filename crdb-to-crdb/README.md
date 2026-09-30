@@ -35,14 +35,14 @@ BUILD_FROM_SOURCE=true ./run-demo.sh
 
 Override component versions via environment variables:
 ```bash
-CONNECTOR_VERSION=3.7.0.Alpha2 COCKROACHDB_VERSION=v25.4.14 DEBEZIUM_VERSION=3.7.0.Alpha2 ./run-demo.sh
+CONNECTOR_VERSION=3.7.0.Final COCKROACHDB_VERSION=v25.4.14 DEBEZIUM_VERSION=3.7.0.Final ./run-demo.sh
 ```
 
 | Variable              | Default       | Description                                                  |
 |-----------------------|---------------|--------------------------------------------------------------|
-| `CONNECTOR_VERSION`   | `3.7.0.Alpha2` | Connector plugin version to download from Maven Central     |
+| `CONNECTOR_VERSION`   | `3.7.0.Final` | Connector plugin version to download from Maven Central     |
 | `COCKROACHDB_VERSION` | `v25.4.14`    | CockroachDB image tag                                        |
-| `DEBEZIUM_VERSION`    | `3.7.0.Alpha2` | Debezium Connect image tag                                   |
+| `DEBEZIUM_VERSION`    | `3.7.0.Final` | Debezium Connect image tag                                   |
 | `CONFLUENT_VERSION`   | `7.4.0`       | Confluent Platform (Kafka/ZK) image tag                      |
 | `BUILD_FROM_SOURCE`   | `false`       | Build connector from local source instead of downloading     |
 | `SKIP_BUILD`          | `false`       | Skip download/build, use existing jars in `connect-plugins/` |
@@ -143,7 +143,7 @@ non-idempotent way, or applied with wrong values.
 | `cockroachdb.changefeed.sink.type`    | `kafka`                                                 | Changefeed sinks to Kafka                                  |
 | `cockroachdb.changefeed.sink.uri`     | `kafka://kafka:9092`                                    | Internal Kafka bootstrap server                            |
 | `cockroachdb.changefeed.kafka.consumer.group.prefix` | `debezium-cockroachdb-source`            | Distinct consumer group per connector; the default is one shared static group, so multiple connectors on the same intermediate Kafka would rebalance each other |
-| `cockroachdb.changefeed.kafka.consumer.offset.commit.enabled` | `true`                          | Mirror consumed positions to the consumer group so external lag tooling works ([debezium/dbz#2472](https://github.com/debezium/dbz/issues/2472)); restart positions always come from the Debezium offsets. Requires a connector build newer than 3.7.0.Alpha2 (older builds ignore the property and the demo's Step 19b reports instead of asserting); until the next release, `BUILD_FROM_SOURCE=true` exercises it |
+| `cockroachdb.changefeed.kafka.consumer.offset.commit.enabled` | `true`                          | Mirror consumed positions to the consumer group so external lag tooling works ([debezium/dbz#2472](https://github.com/debezium/dbz/issues/2472)); restart positions always come from the Debezium offsets. Requires connector 3.7.0.Final or newer (3.7.0.Alpha2 and older ignore the property, and on those builds the demo's Step 19b reports instead of asserting) |
 
 ### Sink Connector (`sink-connector-config.json`)
 
@@ -360,8 +360,8 @@ lag, throughput, and create/update/delete counts. To drive sustained traffic, ru
   ([debezium/dbz#2356](https://github.com/debezium/dbz/issues/2356)). The reduction buffer keeps
   only the most recent event per key per buffer, which guarantees unique keys per statement.
 - Batches containing BYTES fields cannot be bound as SQL arrays by the PostgreSQL driver. On
-  sinks before 3.7.0.Alpha2 this killed the task
-  ([debezium/dbz#2357](https://github.com/debezium/dbz/issues/2357)); from 3.7.0.Alpha2 such
+  sinks before 3.7.0 this killed the task
+  ([debezium/dbz#2357](https://github.com/debezium/dbz/issues/2357)); from 3.7.0 such
   batches fall back to the per-row path automatically, so tables like `orders` (which carries
   the `doc_hash` BYTES column) replicate correctly but without the UNNEST speedup, while tables
   without binary columns get the fast path.

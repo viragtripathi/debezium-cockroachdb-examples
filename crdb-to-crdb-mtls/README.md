@@ -65,7 +65,7 @@ To build the connector from source (optional; the mTLS
 
 ## Quick Start
 
-By default the script downloads the released connector plugin (`3.7.0.Alpha2`) from
+By default the script downloads the released connector plugin (`3.7.0.Final`) from
 Maven Central -- no build required:
 
 ```bash
@@ -80,9 +80,9 @@ BUILD_FROM_SOURCE=true ./run-demo.sh
 
 | Variable              | Default          | Description                                                     |
 |-----------------------|------------------|-----------------------------------------------------------------|
-| `CONNECTOR_VERSION`   | `3.7.0.Alpha2`   | Connector plugin version to download from Maven Central         |
+| `CONNECTOR_VERSION`   | `3.7.0.Final`   | Connector plugin version to download from Maven Central         |
 | `COCKROACHDB_VERSION` | `v25.4.14`       | CockroachDB image tag (and the image used for `cockroach cert`) |
-| `DEBEZIUM_VERSION`    | `3.7.0.Alpha2`    | Debezium Connect image tag                                      |
+| `DEBEZIUM_VERSION`    | `3.7.0.Final`    | Debezium Connect image tag                                      |
 | `CONFLUENT_VERSION`   | `7.4.0`          | Confluent Platform (Kafka/ZK) image tag                         |
 | `BUILD_FROM_SOURCE`   | `false`          | Build connector from local source instead of downloading        |
 | `SKIP_BUILD`          | `false`          | Skip download/build, use existing jars in `connect-plugins/`    |
