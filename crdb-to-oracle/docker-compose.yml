@@ -30,7 +30,7 @@ services:
       ORACLE_PWD: S3curepwd
 
   cockroachdb:
-    image: cockroachdb/cockroach:v25.4.14
+    image: cockroachdb/cockroach:v25.4.18
     container_name: crdb2ora-cockroachdb
     command: start-single-node --insecure
     ports:

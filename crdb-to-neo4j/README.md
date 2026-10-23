@@ -38,7 +38,7 @@ the CockroachDB connector from the sibling checkout instead.
 |---------------------------|----------------|------------------------------------------|
 | `CONNECTOR_VERSION`       | `3.7.0.Final` | CockroachDB connector version from Maven |
 | `NEO4J_CONNECTOR_VERSION` | `5.5.2`        | Neo4j Kafka connector release            |
-| `COCKROACHDB_VERSION`     | `v25.4.14`     | CockroachDB image tag                    |
+| `COCKROACHDB_VERSION`     | `v25.4.18`     | CockroachDB image tag                    |
 | `NEO4J_VERSION`           | `5.26-community` | Neo4j image tag                        |
 | `DEBEZIUM_VERSION`        | `3.7.0.Final`  | Debezium Connect image tag               |
 
