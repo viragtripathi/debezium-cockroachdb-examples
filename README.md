@@ -29,7 +29,7 @@ Where the change events land.
 | Demo | Target | Highlights |
 |------|--------|------------|
 | [crdb-to-oracle](crdb-to-oracle/) | Oracle 19c | Coexistence pattern: keep Oracle-based downstream systems (reporting, legacy consumers) continuously fed from an operational CockroachDB via the Debezium JDBC sink (Oracle dialect auto-resolved). For migrating *into* CockroachDB from Oracle, see `oracle-to-crdb`. Optional `WORKLOAD=tpcc` scale test streams the full TPC-C dataset (9 tables, ~600k rows) and asserts per-table row-count parity. |
-| [crdb-to-iceberg](crdb-to-iceberg/) | Apache Iceberg | Via the official Apache Iceberg Kafka Connect sink, with MinIO object storage and an Iceberg REST catalog. Queryable from any Iceberg-capable engine (Spark, Trino, DuckDB, ClickHouse). |
+| [crdb-to-iceberg](crdb-to-iceberg/) | Apache Iceberg | Via the official Apache Iceberg Kafka Connect sink, with S3-compatible object storage (RustFS) and an Iceberg REST catalog. Queryable from any Iceberg-capable engine (Spark, Trino, DuckDB, ClickHouse). |
 | [crdb-to-neo4j](crdb-to-neo4j/) | Neo4j | Via the official Neo4j Kafka Connect sink (Cypher strategy): rows become nodes, the foreign key becomes a `(:Customer)-[:PLACED]->(:Order)` relationship, with insert, update, and delete propagation verified. |
 
 ## CockroachDB as the target

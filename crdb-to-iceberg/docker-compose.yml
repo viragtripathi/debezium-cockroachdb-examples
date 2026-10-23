@@ -27,26 +27,31 @@ services:
       - "26257:26257"
       - "8080:8080"
 
-  minio:
-    image: minio/minio:latest
-    container_name: iceberg-demo-minio
-    command: server /data --console-address ":9001"
+  # S3-compatible object store. MinIO's public images were withdrawn from Docker Hub and
+  # quay.io in 2025; RustFS speaks the same S3 API on the same ports.
+  s3:
+    image: rustfs/rustfs:1.0.3
+    container_name: iceberg-demo-s3
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
+      RUSTFS_ACCESS_KEY: admin
+      RUSTFS_SECRET_KEY: password
+      RUSTFS_CONSOLE_ENABLE: "true"
 
-  minio-init:
-    image: minio/mc:latest
-    container_name: iceberg-demo-minio-init
+  s3-init:
+    image: amazon/aws-cli:2.38.5
+    container_name: iceberg-demo-s3-init
     depends_on:
-      - minio
+      - s3
+    environment:
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_DEFAULT_REGION: us-east-1
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 admin password; do sleep 1; done;
-      mc mb -p local/warehouse;
+      until aws --endpoint-url http://s3:9000 s3api head-bucket --bucket warehouse 2>/dev/null || aws --endpoint-url http://s3:9000 s3 mb s3://warehouse; do sleep 1; done;
       exit 0;
       "
 
@@ -54,7 +59,7 @@ services:
     image: apache/iceberg-rest-fixture:latest
     container_name: iceberg-demo-rest
     depends_on:
-      - minio
+      - s3
     ports:
       - "8181:8181"
     environment:
@@ -63,7 +68,7 @@ services:
       AWS_REGION: us-east-1
       CATALOG_WAREHOUSE: s3://warehouse/
       CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
-      CATALOG_S3_ENDPOINT: http://minio:9000
+      CATALOG_S3_ENDPOINT: http://s3:9000
       CATALOG_S3_PATH__STYLE__ACCESS: "true"
 
   connect:

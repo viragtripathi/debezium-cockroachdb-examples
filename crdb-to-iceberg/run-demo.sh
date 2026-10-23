@@ -57,7 +57,7 @@ header "Preflight (host ports)"
 # Reruns legitimately reuse this demo's own containers, so only ports held by anything
 # else fail here. Without this check an occupied port surfaces mid-compose as an opaque
 # runtime error (on podman: "proxy already running").
-DEMO_CONTAINERS="iceberg-demo-kafka iceberg-demo-cockroachdb iceberg-demo-minio iceberg-demo-minio-init iceberg-demo-rest iceberg-demo-connect"
+DEMO_CONTAINERS="iceberg-demo-kafka iceberg-demo-cockroachdb iceberg-demo-s3 iceberg-demo-s3-init iceberg-demo-rest iceberg-demo-connect"
 DEMO_PORTS="29092 26257 8080 9000 9001 8181 8083"
 for port in $DEMO_PORTS; do
     HOLDER=$(docker ps --format '{{.Names}} {{.Ports}}' 2>/dev/null | awk -v p=":${port}->" 'index($0, p) { print $1; exit }' || true)
@@ -141,7 +141,7 @@ for i in $(seq 1 30); do
     echo -n "."; sleep 2
 done
 echo ""
-success "Iceberg REST catalog is ready (warehouse on MinIO)"
+success "Iceberg REST catalog is ready (warehouse on the S3 store)"
 
 # ── Step 3: Set up the source database ───────────────────────────────────────
 header "STEP 3: Set Up CockroachDB"
@@ -212,7 +212,7 @@ success "CockroachDB       : localhost:26257  (UI: http://localhost:8080)"
 success "Kafka             : localhost:29092"
 success "Kafka Connect     : http://localhost:8083"
 success "Iceberg REST      : http://localhost:8181"
-success "MinIO console     : http://localhost:9001  (admin/password)"
+success "S3 store (RustFS) : http://localhost:9000  (console :9001, admin/password)"
 echo ""
 info "The Iceberg tables demo.orders and demo.customers hold the CDC event stream."
 info "Tear down with: docker-compose down -v"

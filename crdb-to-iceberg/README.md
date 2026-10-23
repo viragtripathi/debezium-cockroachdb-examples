@@ -17,7 +17,7 @@ Kafka topics (crdb.public.orders, crdb.public.customers)
 Apache Iceberg sink connector (Kafka Connect)
         |
         v
-Iceberg tables (REST catalog + MinIO object storage)
+Iceberg tables (REST catalog + S3-compatible object storage)
 ```
 
 Any engine that speaks Iceberg can then query the tables: Spark, Trino, DuckDB, ClickHouse
@@ -28,7 +28,7 @@ data with pyiceberg, which talks straight to the catalog.
 
 1. Downloads the two connector plugins: the Debezium CockroachDB connector from Maven Central
    and the Apache Iceberg sink from Confluent Hub.
-2. Starts CockroachDB, Kafka, Kafka Connect, MinIO, and an Iceberg REST catalog.
+2. Starts CockroachDB, Kafka, Kafka Connect, an S3-compatible object store (RustFS), and an Iceberg REST catalog.
 3. Creates `orders` and `customers` tables with seed rows, including a `JSONB NOT NULL` column
    and a `DECIMAL(28,18)` column carrying 19 significant digits.
 4. Deploys the source connector, which creates the changefeed, and the Iceberg sink, which
@@ -98,7 +98,7 @@ The interesting parts of `iceberg-sink-config.json`:
 | `iceberg.tables.evolve-schema-enabled` | `true` | Source schema changes add columns to the Iceberg table |
 | `iceberg.control.commit.interval-ms` / `commit.timeout-ms` | `20000` / `15000` | Commit every 20 seconds so the demo shows data quickly; the default interval is 5 minutes |
 | `consumer.override.auto.offset.reset` | `earliest` | The sink reads the topics from the beginning even if it subscribes after the snapshot events were produced |
-| `iceberg.catalog.*` | REST catalog + S3 settings | Points at the local REST catalog and MinIO; swap these for your real catalog and object store |
+| `iceberg.catalog.*` | REST catalog + S3 settings | Points at the local REST catalog and the local S3 store; swap these for your real catalog and object store |
 
 The sink also bundles its own `DebeziumTransform` SMT; this example uses Debezium's
 `ExtractNewRecordState` instead because the sink transform reads `source.table` from the
