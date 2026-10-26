@@ -105,17 +105,26 @@ elif [ "$BUILD_FROM_SOURCE" = "true" ]; then
     rm -rf connect-plugins
     mkdir -p connect-plugins
     unzip -q -o "$CONNECTOR_PROJECT/$PLUGIN_ZIP" -d connect-plugins/
+    echo "source $(git -C "$CONNECTOR_PROJECT" rev-parse --short HEAD 2>/dev/null || echo unknown)" > connect-plugins/.origin
     success "Plugin extracted to connect-plugins/"
 else
     MAVEN_BASE="https://repo1.maven.org/maven2/io/debezium/debezium-connector-cockroachdb"
     PLUGIN_ZIP_NAME="debezium-connector-cockroachdb-${CONNECTOR_VERSION}-plugin.zip"
     PLUGIN_URL="${MAVEN_BASE}/${CONNECTOR_VERSION}/${PLUGIN_ZIP_NAME}"
 
+    # connect-plugins/.origin records where the cached plugin came from (a source build or a
+    # release), so a default run after BUILD_FROM_SOURCE=true, or after a version change, does
+    # not silently keep the other plugin.
+    PLUGIN_ORIGIN=$(cat "$SCRIPT_DIR/connect-plugins/.origin" 2>/dev/null || true)
     if [ -d "$SCRIPT_DIR/connect-plugins/debezium-connector-cockroachdb" ] \
-        && [ -n "$(ls "$SCRIPT_DIR/connect-plugins/debezium-connector-cockroachdb/"*.jar 2>/dev/null)" ]; then
-        success "Plugin already present in connect-plugins/"
+        && [ -n "$(ls "$SCRIPT_DIR/connect-plugins/debezium-connector-cockroachdb/"*.jar 2>/dev/null)" ] \
+        && [ "$PLUGIN_ORIGIN" = "release ${CONNECTOR_VERSION}" ]; then
+        success "Plugin ${CONNECTOR_VERSION} already present in connect-plugins/"
         info "To re-download, run: rm -rf connect-plugins && ./run-demo.sh"
     else
+        if [ -n "$PLUGIN_ORIGIN" ]; then
+            info "connect-plugins/ holds a plugin from '${PLUGIN_ORIGIN}'; replacing it with release ${CONNECTOR_VERSION}"
+        fi
         info "Downloading connector plugin ${CONNECTOR_VERSION} from Maven Central..."
         cd "$SCRIPT_DIR"
         rm -rf connect-plugins
@@ -123,6 +132,7 @@ else
         if curl -fSL -o "/tmp/${PLUGIN_ZIP_NAME}" "$PLUGIN_URL"; then
             unzip -q -o "/tmp/${PLUGIN_ZIP_NAME}" -d connect-plugins/
             rm -f "/tmp/${PLUGIN_ZIP_NAME}"
+            echo "release ${CONNECTOR_VERSION}" > connect-plugins/.origin
             success "Plugin ${CONNECTOR_VERSION} downloaded and extracted to connect-plugins/"
         else
             echo ""
@@ -634,6 +644,71 @@ for line in sys.stdin:
     except: pass
 " 2>/dev/null
 echo ""
+
+# ── Step 20c: Per-row commit timestamp (debezium/dbz#2919) ─────────────────
+header "STEP 20c: Per-Row Commit Timestamp in source.ts_hlc (debezium/dbz#2919)"
+info "source.ts_ms is the last resolved checkpoint, so rows between two checkpoints share it."
+info "With cockroachdb.changefeed.include.mvcc.timestamp=true every event carries the row's own"
+info "MVCC commit timestamp in source.ts_hlc, including initial-scan rows (their real write time,"
+info "not the scan time). Checking the orders topic..."
+# The option ships in connector releases after 3.7.0.Final; older releases ignore it and emit
+# no ts_hlc, so on those the step reports instead of asserting.
+TS_HLC_SUPPORTED=true
+if [ "$BUILD_FROM_SOURCE" != "true" ]; then
+    case "$CONNECTOR_VERSION" in
+        3.6.*|3.7.0.*) TS_HLC_SUPPORTED=false ;;
+    esac
+fi
+# Every changefeed-sourced event (initial scan, live DML, schema-change backfills) must carry
+# the row's MVCC commit timestamp, and the latest such event for a row must match the row's
+# current crdb_internal_mvcc_timestamp. Events the connector itself generates for the
+# incremental snapshot (op=r from the signal) are reported separately.
+ROW_MVCC=$(docker exec demo-cockroachdb cockroach sql --insecure -d demodb --format=csv \
+    -e "SELECT crdb_internal_mvcc_timestamp::STRING FROM orders WHERE order_number = 'ORD-1001';" 2>/dev/null | tail -1)
+EVENTS=$(docker exec demo-kafka kafka-console-consumer \
+    --bootstrap-server localhost:9092 --topic crdb.public.orders \
+    --from-beginning --max-messages 200 --timeout-ms 10000 2>/dev/null || true)
+TS_HLC_RESULT=$(echo "$EVENTS" | ROW_MVCC="$ROW_MVCC" python3 -c "
+import sys, json, os
+from decimal import Decimal
+cf_total = cf_with_hlc = inc_total = 0
+last_cf_hlc = None
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        payload = json.loads(line).get('payload') or {}
+    except Exception:
+        continue
+    op = payload.get('op')
+    if not op:
+        continue
+    hlc = (payload.get('source') or {}).get('ts_hlc')
+    if op == 'r':
+        inc_total += 1
+        continue
+    cf_total += 1
+    if hlc:
+        cf_with_hlc += 1
+    row = (payload.get('after') or payload.get('before') or {})
+    if row.get('order_number') == 'ORD-1001':
+        last_cf_hlc = hlc
+row_mvcc = os.environ.get('ROW_MVCC', '')
+match = 'yes' if (last_cf_hlc and row_mvcc and Decimal(last_cf_hlc) == Decimal(row_mvcc)) else 'no'
+print(f'{cf_total} {cf_with_hlc} {last_cf_hlc or \"-\"} {match} {inc_total}')
+" 2>/dev/null || echo "0 0 - no 0")
+set -- $TS_HLC_RESULT
+CF_EVENTS=${1:-0}; CF_WITH_HLC=${2:-0}; LAST_CF_HLC=${3:--}; SEED_MATCH=${4:-no}; INC_EVENTS=${5:-0}
+info "changefeed events on orders: $CF_EVENTS, with source.ts_hlc: $CF_WITH_HLC (plus $INC_EVENTS incremental-snapshot reads, not asserted)"
+info "ORD-1001 latest changefeed event ts_hlc: $LAST_CF_HLC  |  row crdb_internal_mvcc_timestamp: ${ROW_MVCC:-?}"
+if [ "$CF_EVENTS" -gt 0 ] && [ "$CF_WITH_HLC" = "$CF_EVENTS" ] && [ "$SEED_MATCH" = "yes" ]; then
+    success "Every changefeed event carries its row's MVCC commit timestamp, and the latest one for ORD-1001 matches the row's current write time"
+elif [ "$TS_HLC_SUPPORTED" = "true" ]; then
+    fail "Expected source.ts_hlc on every changefeed event and the latest ORD-1001 event to match the row's MVCC timestamp"
+else
+    warn "Connector $CONNECTOR_VERSION predates per-row commit timestamps (debezium/dbz#2919): source.ts_hlc stays empty on this build. Use BUILD_FROM_SOURCE=true or a newer release to see them."
+fi
 
 # ── Step 21: Verify data in target CockroachDB ────────────────────────────
 header "STEP 21: Verify Data in Target CockroachDB (CRDB->Kafka->CRDB round-trip)"

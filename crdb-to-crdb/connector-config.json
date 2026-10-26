@@ -17,6 +17,7 @@
     "cockroachdb.changefeed.kafka.consumer.group.prefix": "debezium-cockroachdb-source",
     "cockroachdb.changefeed.kafka.consumer.offset.commit.enabled": true,
     "cockroachdb.changefeed.include.updated": true,
+    "cockroachdb.changefeed.include.mvcc.timestamp": true,
     "cockroachdb.changefeed.include.diff": true,
     "cockroachdb.changefeed.resolved.interval": "10s",
     "heartbeat.interval.ms": 10000,

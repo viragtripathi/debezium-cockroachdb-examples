@@ -53,7 +53,7 @@ CONNECTOR_VERSION=3.7.0.Final COCKROACHDB_VERSION=v25.4.18 DEBEZIUM_VERSION=3.7.
 
 The script is fully automated and runs through 22 steps:
 
-1. **Obtain** the connector plugin (download from Maven Central, build from source, or use existing)
+1. **Obtain** the connector plugin (download from Maven Central, build from source, or use existing); `connect-plugins/.origin` records which one, so a later run with a different mode or version fetches again instead of reusing it
 2. **Extract** the plugin into `connect-plugins/`
 3. **Start** Docker Compose (source CRDB, target CRDB, Zookeeper, Kafka, Kafka Connect)
 4. **Wait** for source CockroachDB (port 26257)
@@ -92,6 +92,7 @@ The script is fully automated and runs through 22 steps:
 | Heartbeat support     | Resolved timestamps advance offsets and emit heartbeat records             |
 | Restart resume        | A source connector restart resumes from its persisted position without replaying the backlog |
 | Group offset mirror   | With `cockroachdb.changefeed.kafka.consumer.offset.commit.enabled=true` the connector mirrors its consumed positions to its Kafka consumer group, so `kafka-consumer-groups` and lag dashboards reflect its progress ([debezium/dbz#2472](https://github.com/debezium/dbz/issues/2472)) |
+| Per-row commit time   | With `cockroachdb.changefeed.include.mvcc.timestamp=true` every event carries the row's MVCC commit timestamp in `source.ts_hlc`, including initial-scan rows (their real write time, not the scan time); the demo checks a seeded row against `crdb_internal_mvcc_timestamp` ([debezium/dbz#2919](https://github.com/debezium/dbz/issues/2919)) |
 | Debug logging         | Full event pipeline visible in connector logs                              |
 | Data types            | UUID, STRING, DECIMAL, BOOLEAN, JSONB, BYTES, TIMESTAMPTZ, arrays          |
 
@@ -138,6 +139,7 @@ non-idempotent way, or applied with wrong values.
 | `signal.data.collection`              | `demodb.public.debezium_signal`                         | Signaling table for incremental snapshots                  |
 | `cockroachdb.changefeed.max.tables.per.changefeed` | `2`                                        | Split the 4 captured tables across 2 changefeeds to avoid per-table coupling ([debezium/dbz#2014](https://github.com/debezium/dbz/issues/2014)). `0` would put them all in one changefeed |
 | `cockroachdb.changefeed.include.diff` | `true`                                                  | Include before-image for updates                           |
+| `cockroachdb.changefeed.include.mvcc.timestamp` | `true`                                   | Emit each row's MVCC commit timestamp as `source.ts_hlc` ([debezium/dbz#2919](https://github.com/debezium/dbz/issues/2919)); ships in releases after 3.7.0.Final, older builds ignore it and the demo's Step 20c reports instead of asserting |
 | `cockroachdb.changefeed.cursor`       | `now`                                                   | Start from current time (no historical backfill)           |
 | `heartbeat.interval.ms`               | `10000`                                                 | Emit heartbeat records every 10s using resolved timestamps |
 | `cockroachdb.changefeed.sink.type`    | `kafka`                                                 | Changefeed sinks to Kafka                                  |
