@@ -92,7 +92,7 @@ The script is fully automated and runs through 22 steps:
 | Heartbeat support     | Resolved timestamps advance offsets and emit heartbeat records             |
 | Restart resume        | A source connector restart resumes from its persisted position without replaying the backlog |
 | Group offset mirror   | With `cockroachdb.changefeed.kafka.consumer.offset.commit.enabled=true` the connector mirrors its consumed positions to its Kafka consumer group, so `kafka-consumer-groups` and lag dashboards reflect its progress ([debezium/dbz#2472](https://github.com/debezium/dbz/issues/2472)) |
-| Per-row commit time   | With `cockroachdb.changefeed.include.mvcc.timestamp=true` every event carries the row's MVCC commit timestamp in `source.ts_hlc`, including initial-scan rows (their real write time, not the scan time); the demo checks a seeded row against `crdb_internal_mvcc_timestamp` ([debezium/dbz#2919](https://github.com/debezium/dbz/issues/2919)) |
+| Per-row commit time   | With `cockroachdb.changefeed.include.mvcc.timestamp=true` every event carries the row's MVCC commit timestamp in `source.ts_hlc`, including initial-scan rows (their real write time, not the scan time), while reads produced by an incremental snapshot carry none ([debezium/dbz#2944](https://github.com/debezium/dbz/issues/2944)); the demo checks a seeded row against `crdb_internal_mvcc_timestamp` and the snapshot reads for an absent `ts_hlc` ([debezium/dbz#2919](https://github.com/debezium/dbz/issues/2919)) |
 | Debug logging         | Full event pipeline visible in connector logs                              |
 | Data types            | UUID, STRING, DECIMAL, BOOLEAN, JSONB, BYTES, TIMESTAMPTZ, arrays          |
 

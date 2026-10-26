@@ -662,7 +662,8 @@ fi
 # Every changefeed-sourced event (initial scan, live DML, schema-change backfills) must carry
 # the row's MVCC commit timestamp, and the latest such event for a row must match the row's
 # current crdb_internal_mvcc_timestamp. Events the connector itself generates for the
-# incremental snapshot (op=r from the signal) are reported separately.
+# incremental snapshot (op=r from the signal) are reads, not changefeed deliveries, so they
+# must carry no ts_hlc at all (debezium/dbz#2944).
 ROW_MVCC=$(docker exec demo-cockroachdb cockroach sql --insecure -d demodb --format=csv \
     -e "SELECT crdb_internal_mvcc_timestamp::STRING FROM orders WHERE order_number = 'ORD-1001';" 2>/dev/null | tail -1)
 EVENTS=$(docker exec demo-kafka kafka-console-consumer \
@@ -671,7 +672,7 @@ EVENTS=$(docker exec demo-kafka kafka-console-consumer \
 TS_HLC_RESULT=$(echo "$EVENTS" | ROW_MVCC="$ROW_MVCC" python3 -c "
 import sys, json, os
 from decimal import Decimal
-cf_total = cf_with_hlc = inc_total = 0
+cf_total = cf_with_hlc = inc_total = inc_with_hlc = 0
 last_cf_hlc = None
 for line in sys.stdin:
     line = line.strip()
@@ -687,6 +688,8 @@ for line in sys.stdin:
     hlc = (payload.get('source') or {}).get('ts_hlc')
     if op == 'r':
         inc_total += 1
+        if hlc:
+            inc_with_hlc += 1
         continue
     cf_total += 1
     if hlc:
@@ -696,14 +699,16 @@ for line in sys.stdin:
         last_cf_hlc = hlc
 row_mvcc = os.environ.get('ROW_MVCC', '')
 match = 'yes' if (last_cf_hlc and row_mvcc and Decimal(last_cf_hlc) == Decimal(row_mvcc)) else 'no'
-print(f'{cf_total} {cf_with_hlc} {last_cf_hlc or \"-\"} {match} {inc_total}')
-" 2>/dev/null || echo "0 0 - no 0")
+print(f'{cf_total} {cf_with_hlc} {last_cf_hlc or \"-\"} {match} {inc_total} {inc_with_hlc}')
+" 2>/dev/null || echo "0 0 - no 0 0")
 set -- $TS_HLC_RESULT
-CF_EVENTS=${1:-0}; CF_WITH_HLC=${2:-0}; LAST_CF_HLC=${3:--}; SEED_MATCH=${4:-no}; INC_EVENTS=${5:-0}
-info "changefeed events on orders: $CF_EVENTS, with source.ts_hlc: $CF_WITH_HLC (plus $INC_EVENTS incremental-snapshot reads, not asserted)"
+CF_EVENTS=${1:-0}; CF_WITH_HLC=${2:-0}; LAST_CF_HLC=${3:--}; SEED_MATCH=${4:-no}; INC_EVENTS=${5:-0}; INC_WITH_HLC=${6:-0}
+info "changefeed events on orders: $CF_EVENTS, with source.ts_hlc: $CF_WITH_HLC; incremental-snapshot reads: $INC_EVENTS, with source.ts_hlc: $INC_WITH_HLC"
 info "ORD-1001 latest changefeed event ts_hlc: $LAST_CF_HLC  |  row crdb_internal_mvcc_timestamp: ${ROW_MVCC:-?}"
-if [ "$CF_EVENTS" -gt 0 ] && [ "$CF_WITH_HLC" = "$CF_EVENTS" ] && [ "$SEED_MATCH" = "yes" ]; then
-    success "Every changefeed event carries its row's MVCC commit timestamp, and the latest one for ORD-1001 matches the row's current write time"
+if [ "$CF_EVENTS" -gt 0 ] && [ "$CF_WITH_HLC" = "$CF_EVENTS" ] && [ "$SEED_MATCH" = "yes" ] && [ "$INC_WITH_HLC" = "0" ]; then
+    success "Every changefeed event carries its row's MVCC commit timestamp, the latest one for ORD-1001 matches the row's current write time, and the $INC_EVENTS incremental-snapshot reads carry none"
+elif [ "$TS_HLC_SUPPORTED" = "true" ] && [ "$INC_WITH_HLC" != "0" ]; then
+    fail "Incremental-snapshot reads must not carry a changefeed event's ts_hlc (debezium/dbz#2944): $INC_WITH_HLC of $INC_EVENTS do"
 elif [ "$TS_HLC_SUPPORTED" = "true" ]; then
     fail "Expected source.ts_hlc on every changefeed event and the latest ORD-1001 event to match the row's MVCC timestamp"
 else
