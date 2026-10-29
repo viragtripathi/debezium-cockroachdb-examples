@@ -74,6 +74,8 @@ The script is fully automated and runs through 22 steps:
 19. **List Kafka topics**
 20. **Display Debezium change events** from the output topic (op=c, op=u, op=d)
 20b. **Multi-schema regression check** ([debezium/dbz#1973](https://github.com/debezium/dbz/issues/1973)): verify events from `inventory.warehouse_items` appear on `crdb.inventory.warehouse_items`
+20c. **Per-row commit timestamp check** ([debezium/dbz#2919](https://github.com/debezium/dbz/issues/2919)): every changefeed event carries its row's MVCC timestamp in `source.ts_hlc`, and incremental-snapshot reads carry none
+20d. **One-time copy with `snapshot.mode=initial_only`** ([debezium/dbz#2966](https://github.com/debezium/dbz/issues/2966)): a second connector emits each current order once as a snapshot read and stops; a restart does not scan again
 21. **Verify data in target CRDB** and compare source vs target row counts
 22. **Print summary** with all service URLs and interactive commands
 
@@ -93,6 +95,7 @@ The script is fully automated and runs through 22 steps:
 | Restart resume        | A source connector restart resumes from its persisted position without replaying the backlog |
 | Group offset mirror   | With `cockroachdb.changefeed.kafka.consumer.offset.commit.enabled=true` the connector mirrors its consumed positions to its Kafka consumer group, so `kafka-consumer-groups` and lag dashboards reflect its progress ([debezium/dbz#2472](https://github.com/debezium/dbz/issues/2472)) |
 | Per-row commit time   | With `cockroachdb.changefeed.include.mvcc.timestamp=true` every event carries the row's MVCC commit timestamp in `source.ts_hlc`, including initial-scan rows (their real write time, not the scan time), while reads produced by an incremental snapshot carry none ([debezium/dbz#2944](https://github.com/debezium/dbz/issues/2944)); the demo checks a seeded row against `crdb_internal_mvcc_timestamp` and the snapshot reads for an absent `ts_hlc` ([debezium/dbz#2919](https://github.com/debezium/dbz/issues/2919)) |
+| One-time copy         | `initial-only-source-config.json` registers a second connector with `snapshot.mode=initial_only`: each current order arrives once as a snapshot read, the last one is marked `source.snapshot=last`, the changefeed job ends, and a restart neither scans again nor creates another changefeed ([debezium/dbz#2966](https://github.com/debezium/dbz/issues/2966)) |
 | Debug logging         | Full event pipeline visible in connector logs                              |
 | Data types            | UUID, STRING, DECIMAL, BOOLEAN, JSONB, BYTES, TIMESTAMPTZ, arrays          |
 

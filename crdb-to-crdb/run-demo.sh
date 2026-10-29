@@ -715,6 +715,112 @@ else
     warn "Connector $CONNECTOR_VERSION predates per-row commit timestamps (debezium/dbz#2919): source.ts_hlc stays empty on this build. Use BUILD_FROM_SOURCE=true or a newer release to see them."
 fi
 
+# ── Step 20d: One-time copy with snapshot.mode=initial_only ─────────────────
+header "STEP 20d: One-Time Copy with snapshot.mode=initial_only (debezium/dbz#2966)"
+info "A second source connector (initial-only-source-config.json) copies the current orders once:"
+info "every row arrives as a snapshot read (op=r), the last one is marked source.snapshot=last, the"
+info "changefeed job ends, and a restart neither scans again nor creates another changefeed."
+info "The config also enables include.updated and include.diff, which initial_only ignores."
+# The fix ships in connector releases after 3.7.0.Final. Older releases cannot create an
+# initial_only changefeed at all, so the step is skipped there.
+INITIAL_ONLY_SUPPORTED=true
+if [ "$BUILD_FROM_SOURCE" != "true" ]; then
+    case "$CONNECTOR_VERSION" in
+        3.6.*|3.7.0.*) INITIAL_ONLY_SUPPORTED=false ;;
+    esac
+fi
+if [ "$INITIAL_ONLY_SUPPORTED" != "true" ]; then
+    warn "Connector $CONNECTOR_VERSION predates the initial_only fix (debezium/dbz#2966): skipping. Use BUILD_FROM_SOURCE=true or a newer release."
+else
+    ONCE_TOPIC="crdb_once.public.orders"
+    count_once_events() {
+        docker exec demo-kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic "$ONCE_TOPIC" \
+            --from-beginning --timeout-ms 8000 2>/dev/null | python3 -c "
+import sys, json
+total = reads = 0
+last = '-'
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        m = json.loads(line)
+    except Exception:
+        continue
+    p = m.get('payload', m) if isinstance(m, dict) else None
+    if not isinstance(p, dict) or not p.get('op'):
+        continue
+    total += 1
+    if p['op'] == 'r':
+        reads += 1
+    last = (p.get('source') or {}).get('snapshot') or '-'
+print(total, reads, last)
+" 2>/dev/null || echo "0 0 -"
+    }
+    once_job_count() {
+        docker exec demo-cockroachdb cockroach sql --insecure --format=csv \
+            -e "SELECT count(*) FROM [SHOW CHANGEFEED JOBS] WHERE description LIKE '%crdb_once%';" 2>/dev/null | tail -1 || true
+    }
+    ORDER_ROWS=$(docker exec demo-cockroachdb cockroach sql --insecure -d demodb --format=csv \
+        -e "SELECT count(*) FROM orders;" 2>/dev/null | tail -1 || true)
+    HTTP=$(curl -s -o /tmp/demo-once-response.json -w '%{http_code}' -X POST -H "Content-Type: application/json" \
+        --data @initial-only-source-config.json http://localhost:8083/connectors)
+    { [ "$HTTP" = "201" ] || [ "$HTTP" = "409" ]; } || fail "initial_only source deploy returned HTTP $HTTP: $(cat /tmp/demo-once-response.json)"
+    wait_for_task_running "debezium-cockroachdb-initial-only" 45 || fail "initial_only source task did not reach RUNNING"
+
+    ONCE_RESULT="0 0 -"
+    for i in $(seq 1 20); do
+        ONCE_RESULT=$(count_once_events)
+        set -- $ONCE_RESULT
+        if [ "${1:-0}" -ge "${ORDER_ROWS:-1}" ] && [ "${3:--}" = "last" ]; then
+            break
+        fi
+        sleep 3
+    done
+    set -- $ONCE_RESULT
+    ONCE_TOTAL=${1:-0}; ONCE_READS=${2:-0}; ONCE_LAST=${3:--}
+    ONCE_JOB_STATUS=$(docker exec demo-cockroachdb cockroach sql --insecure --format=csv \
+        -e "SELECT status FROM [SHOW CHANGEFEED JOBS] WHERE description LIKE '%crdb_once%' ORDER BY created DESC LIMIT 1;" 2>/dev/null | tail -1 || true)
+    info "orders rows: $ORDER_ROWS | events on $ONCE_TOPIC: $ONCE_TOTAL (op=r: $ONCE_READS) | last event source.snapshot: $ONCE_LAST | changefeed job: $ONCE_JOB_STATUS"
+    if [ "$ONCE_TOTAL" = "$ORDER_ROWS" ] && [ "$ONCE_READS" = "$ORDER_ROWS" ] && [ "$ONCE_LAST" = "last" ] && [ "$ONCE_JOB_STATUS" = "succeeded" ]; then
+        success "initial_only copied all $ORDER_ROWS orders as snapshot reads, marked the last one, and its changefeed job ended"
+    else
+        fail "Expected $ORDER_ROWS op=r events on $ONCE_TOPIC ending with source.snapshot=last, and a succeeded changefeed job"
+    fi
+
+    info "Restarting the initial_only connector after its completed snapshot..."
+    ONCE_JOBS_BEFORE=$(once_job_count)
+    SKIP_LINES_BEFORE=$(docker logs demo-connect 2>&1 | grep -c "initial snapshot already completed" || true)
+    # Connect answers 409 while a rebalance is in progress, so retry until the restart is accepted.
+    RESTART_HTTP=000
+    for i in 1 2 3 4 5; do
+        RESTART_HTTP=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            "http://localhost:8083/connectors/debezium-cockroachdb-initial-only/restart?includeTasks=true&onlyFailed=false" || true)
+        case "$RESTART_HTTP" in 2*) break ;; esac
+        sleep 3
+    done
+    info "restart request answered HTTP $RESTART_HTTP"
+    sleep 20
+    set -- $(count_once_events)
+    ONCE_TOTAL_AFTER=${1:-0}
+    ONCE_JOBS_AFTER=$(once_job_count)
+    ONCE_TASK_STATE=$(curl -s http://localhost:8083/connectors/debezium-cockroachdb-initial-only/status 2>/dev/null \
+        | python3 -c "import sys,json; t=json.load(sys.stdin).get('tasks',[]); print(t[0]['state'] if t else 'NO_TASK')" 2>/dev/null || echo "UNKNOWN")
+    SKIP_LINES_AFTER=$(docker logs demo-connect 2>&1 | grep -c "initial snapshot already completed" || true)
+    info "after restart: task $ONCE_TASK_STATE | events: $ONCE_TOTAL_AFTER | changefeed jobs: $ONCE_JOBS_AFTER | skip log lines: $SKIP_LINES_BEFORE -> $SKIP_LINES_AFTER"
+    # The restarted task must be running and must have taken the completed-snapshot path, not
+    # merely produced nothing.
+    if [ "$ONCE_TASK_STATE" = "RUNNING" ] && [ "$SKIP_LINES_AFTER" -gt "$SKIP_LINES_BEFORE" ] \
+        && [ "$ONCE_TOTAL_AFTER" = "$ONCE_TOTAL" ] && [ "$ONCE_JOBS_AFTER" = "$ONCE_JOBS_BEFORE" ]; then
+        success "The restarted task found the completed snapshot, emitted no events, and created no changefeed"
+    else
+        docker logs demo-connect 2>&1 | grep -i "initial-only\|initial_only" | tail -15 || true
+        fail "Restart after the completed snapshot: expected a RUNNING task that logs the completed snapshot, no new events, and no new changefeed"
+    fi
+    curl -s -X DELETE http://localhost:8083/connectors/debezium-cockroachdb-initial-only -o /dev/null
+    info "Removed the initial_only connector"
+fi
+
 # ── Step 21: Verify data in target CockroachDB ────────────────────────────
 header "STEP 21: Verify Data in Target CockroachDB (CRDB->Kafka->CRDB round-trip)"
 echo ""
