@@ -651,12 +651,12 @@ info "source.ts_ms is the last resolved checkpoint, so rows between two checkpoi
 info "With cockroachdb.changefeed.include.mvcc.timestamp=true every event carries the row's own"
 info "MVCC commit timestamp in source.ts_hlc, including initial-scan rows (their real write time,"
 info "not the scan time). Checking the orders topic..."
-# The option ships in connector releases after 3.7.0.Final; older releases ignore it and emit
-# no ts_hlc, so on those the step reports instead of asserting.
+# The option ships in 3.8.0.Alpha1 and later. 3.6.x and 3.7.x releases, including 3.7.1.Final,
+# ignore it and emit no ts_hlc, so on those the step reports instead of asserting.
 TS_HLC_SUPPORTED=true
 if [ "$BUILD_FROM_SOURCE" != "true" ]; then
     case "$CONNECTOR_VERSION" in
-        3.6.*|3.7.0.*) TS_HLC_SUPPORTED=false ;;
+        3.6.*|3.7.*) TS_HLC_SUPPORTED=false ;;
     esac
 fi
 # Every changefeed-sourced event (initial scan, live DML, schema-change backfills) must carry
@@ -712,7 +712,7 @@ elif [ "$TS_HLC_SUPPORTED" = "true" ] && [ "$INC_WITH_HLC" != "0" ]; then
 elif [ "$TS_HLC_SUPPORTED" = "true" ]; then
     fail "Expected source.ts_hlc on every changefeed event and the latest ORD-1001 event to match the row's MVCC timestamp"
 else
-    warn "Connector $CONNECTOR_VERSION predates per-row commit timestamps (debezium/dbz#2919): source.ts_hlc stays empty on this build. Use BUILD_FROM_SOURCE=true or a newer release to see them."
+    warn "Connector $CONNECTOR_VERSION does not include per-row commit timestamps (debezium/dbz#2919): source.ts_hlc stays empty on this build. Use BUILD_FROM_SOURCE=true or a newer release to see them."
 fi
 
 # ── Step 20d: One-time copy with snapshot.mode=initial_only ─────────────────
@@ -721,16 +721,16 @@ info "A second source connector (initial-only-source-config.json) copies the cur
 info "every row arrives as a snapshot read (op=r), the last one is marked source.snapshot=last, the"
 info "changefeed job ends, and a restart neither scans again nor creates another changefeed."
 info "The config also enables include.updated and include.diff, which initial_only ignores."
-# The fix ships in connector releases after 3.7.0.Final. Older releases cannot create an
-# initial_only changefeed at all, so the step is skipped there.
+# The fix is on main after 3.8.0.Alpha1. Releases without it (3.6.x, 3.7.x including 3.7.1.Final,
+# and 3.8.0.Alpha1) cannot create an initial_only changefeed at all, so the step is skipped there.
 INITIAL_ONLY_SUPPORTED=true
 if [ "$BUILD_FROM_SOURCE" != "true" ]; then
     case "$CONNECTOR_VERSION" in
-        3.6.*|3.7.0.*) INITIAL_ONLY_SUPPORTED=false ;;
+        3.6.*|3.7.*|3.8.0.Alpha1) INITIAL_ONLY_SUPPORTED=false ;;
     esac
 fi
 if [ "$INITIAL_ONLY_SUPPORTED" != "true" ]; then
-    warn "Connector $CONNECTOR_VERSION predates the initial_only fix (debezium/dbz#2966): skipping. Use BUILD_FROM_SOURCE=true or a newer release."
+    warn "Connector $CONNECTOR_VERSION does not include the initial_only fix (debezium/dbz#2966): skipping. Use BUILD_FROM_SOURCE=true or a newer release."
 else
     ONCE_TOPIC="crdb_once.public.orders"
     count_once_events() {
