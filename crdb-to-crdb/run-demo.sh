@@ -721,12 +721,13 @@ info "A second source connector (initial-only-source-config.json) copies the cur
 info "every row arrives as a snapshot read (op=r), the last one is marked source.snapshot=last, the"
 info "changefeed job ends, and a restart neither scans again nor creates another changefeed."
 info "The config also enables include.updated and include.diff, which initial_only ignores."
-# The fix is on main after 3.8.0.Alpha1. Releases without it (3.6.x, 3.7.x including 3.7.1.Final,
-# and 3.8.0.Alpha1) cannot create an initial_only changefeed at all, so the step is skipped there.
+# The fix ships in 3.8.0.Alpha2 and later, and is on the 3.7 branch for 3.7.2. Releases without it
+# (3.6.x, 3.7.0.x, 3.7.1.x, and 3.8.0.Alpha1) cannot create an initial_only changefeed at all, so
+# the step is skipped there.
 INITIAL_ONLY_SUPPORTED=true
 if [ "$BUILD_FROM_SOURCE" != "true" ]; then
     case "$CONNECTOR_VERSION" in
-        3.6.*|3.7.*|3.8.0.Alpha1) INITIAL_ONLY_SUPPORTED=false ;;
+        3.6.*|3.7.0.*|3.7.1.*|3.8.0.Alpha1) INITIAL_ONLY_SUPPORTED=false ;;
     esac
 fi
 if [ "$INITIAL_ONLY_SUPPORTED" != "true" ]; then
