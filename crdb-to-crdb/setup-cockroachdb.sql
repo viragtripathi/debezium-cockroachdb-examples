@@ -6,6 +6,9 @@ CREATE DATABASE IF NOT EXISTS demodb;
 CREATE USER IF NOT EXISTS demo;
 GRANT CONNECT ON DATABASE demodb TO demo;
 GRANT SYSTEM VIEWCLUSTERSETTING TO demo;
+-- CockroachDB v26.4 requires this system privilege before a non-admin user can create a
+-- changefeed that writes to a kafka:// URI. v25.4 does not.
+GRANT SYSTEM EXTERNALIOIMPLICITACCESS TO demo;
 
 USE demodb;
 
